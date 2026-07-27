@@ -754,7 +754,7 @@ function LibraryPage({toast, currentUser, setView}){
     // newsletters: PWYW modal offering a broadsheet PDF download or reading online
     if(pub.pub_type==='newsletter'){
       setSelected({...pub, _nl_id:true, _nl:{year:pub._year,month:pub._month},
-        _pdf_url:`/api/newsletters/${pub._year}/${pub._month}/broadsheet?format=pdf`,
+        _pdf_url:`static/media/broadsheet_${pub._year}_${String(pub._month).padStart(2,'0')}.pdf`,
         description:'Read this edition online, or take it as a vintage newspaper broadsheet — PDF, plotter-ready.'});
       setPayAmount(0);return;
     }

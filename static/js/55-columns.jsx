@@ -45,7 +45,7 @@ function ColumnsPage({ setView, go }) {
         <div className="page-sub">Running series from the desk — read as cards, browse by calendar, collected into booklets.</div>
       </div>
       {cols.length === 0
-        ? <div className="empty"><div className="empty-icon">¶</div><div className="empty-title">No columns yet.</div><div className="empty-sub">Start one in Admin → Columns.</div></div>
+        ? <div className="empty"><div className="empty-icon">¶</div><div className="empty-title">No columns yet.</div><div className="empty-sub">Check back soon.</div></div>
         : <div className="cols-grid">{cols.map(c => <ColumnNameplate key={c.id} col={c} onOpen={() => setView('col:' + c.slug)} />)}</div>}
     </div>
   );

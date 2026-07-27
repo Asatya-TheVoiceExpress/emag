@@ -694,7 +694,7 @@ function Footer({setView}){
       <div className="footer-brand">Voice Express</div>
       <div className="footer-tagline">Truth Takes Time</div>
       <div className="footer-links">
-        {[['home','Home'],['puzzles','Puzzles'],['timeline','Timeline'],['map','Map'],['newsletter','Newsletter'],['authors','Contributors'],['admin','Editorial Desk']].map(([id,l])=>(
+        {[['home','Home'],['puzzles','Puzzles'],['timeline','Timeline'],['map','Map'],['newsletter','Newsletter'],['authors','Contributors']].map(([id,l])=>(
           <span key={id} className="footer-link" onClick={()=>setView(id)}>{l}</span>
         ))}
       </div>
