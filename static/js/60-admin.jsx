@@ -125,7 +125,6 @@ function AdminPanel({setView,go,currentUser}){
           <div className="empty-icon">✦</div>
           <div className="empty-title">Editorial Desk</div>
           <div className="empty-sub">Staff access required. Sign in with an editor or admin account to continue.</div>
-          <div style={{fontFamily:'var(--fm)',fontSize:'.62rem',color:'var(--g400)',marginTop:'.52rem'}}>Admin: tve &nbsp;·&nbsp; Author: mouli</div>
         </div>
       </div>
     );
@@ -196,7 +195,7 @@ function AdminPanel({setView,go,currentUser}){
             ['Newsroom',[['articles','Writing Desk'],['series','Series'],['pages','Pages']]],
             ['Periodicals',[['columns','Column Studio']]],
             ['Distribution',[['newsletter','Newsletter']]],
-            ['Audience',[['comments','Comments'],['mailbox','Mailbox']]],
+            ['Audience',[['comments','Comments'],['mailbox','Mailbox'],['sheet-data','Sheet Data']]],
             ['Insights',[['analytics','Analytics']]],
             ['Taxonomy & People',[['authors','Authors'],['categories','Categories'],['tags','Tags'],...(currentUser?.role==='admin'?[['users','Users']]:[])]],
           ].map(([grp,items])=>(
@@ -678,6 +677,8 @@ function AdminPanel({setView,go,currentUser}){
 
         {tab==='comments'&&<AdminComments toast={toast}/>}
 
+        {tab==='sheet-data'&&<AdminSheetMirrors toast={toast}/>}
+
         {tab==='newsletter'&&<AdminNewsletterTab toast={toast} setView={setView}/>}
         {tab==='columns'&&<AdminColumns toast={toast}/>}
       </>}
@@ -701,6 +702,51 @@ function Footer({setView}){
       <div className="footer-copy">© {new Date().getFullYear()} Voice Express. Independent journalism.</div>
     </footer>
   );
+}
+
+/* ── URL routing ───────────────────────────────────────────────────────────
+   Hash-based on purpose. Both mirrors are static GitHub Pages sites with no
+   server-side rewrites, so a real path like /article/foo would 404 on a cold
+   load or a shared link; a hash deep-links with zero server config and works
+   identically under app.py. `view` is either a known page name, 'col:<slug>',
+   or a bare section/category slug -- routeFor/parseRoute map that both ways. */
+const ROUTE_VIEWS={
+  home:'/', puzzles:'/puzzles', timeline:'/timeline', map:'/map',
+  library:'/newsstand', newsletter:'/newsletter', authors:'/authors',
+  admin:'/admin', search:'/search', profile:'/profile', about:'/about',
+  submissions:'/submissions', ebook:'/ebook', letters:'/letters',
+  columns:'/columns',
+};
+const VIEW_BY_ROUTE=Object.fromEntries(Object.entries(ROUTE_VIEWS).map(([v,p])=>[p,v]));
+
+function routeFor(view,current,authorId,search,colEntryId){
+  if(view==='article'&&current)return '#/article/'+encodeURIComponent(current.slug||current.id);
+  if(view==='authors'&&authorId)return '#/author/'+encodeURIComponent(authorId);
+  if(view==='search'&&search)return '#/search?q='+encodeURIComponent(search);
+  if(Object.prototype.hasOwnProperty.call(ROUTE_VIEWS,view))return '#'+ROUTE_VIEWS[view];
+  // A column ENTRY is its own screen, so it gets its own URL. Without one it
+  // was pure React state: the browser had no entry to go back to, so Back
+  // skipped the entry AND its column and dumped the reader on whatever came
+  // before -- usually Home. It also makes an entry linkable.
+  if(view.indexOf('col:')===0){
+    const base='#/column/'+encodeURIComponent(view.slice(4));
+    return colEntryId?base+'/'+encodeURIComponent(colEntryId):base;
+  }
+  return '#/'+encodeURIComponent(view);          // section or category slug
+}
+
+function parseRoute(hash){
+  const raw=String(hash||'').replace(/^#/,'')||'/';
+  const [path,qs]=raw.split('?');
+  const seg=path.split('/').filter(Boolean).map(decodeURIComponent);
+  const q=(()=>{try{return new URLSearchParams(qs||'').get('q')||'';}catch{return'';}})();
+  if(!seg.length)return {view:'home'};
+  if(seg[0]==='article')return {view:'article',articleSlug:seg[1]||''};
+  if(seg[0]==='author') return {view:'authors',authorId:seg[1]||''};
+  if(seg[0]==='column') return {view:'col:'+(seg[1]||''),colEntryId:seg[2]||null};
+  const p='/'+seg.join('/');
+  if(VIEW_BY_ROUTE[p])return {view:VIEW_BY_ROUTE[p],query:q};
+  return {view:seg[0]};                          // section or category slug
 }
 
 /* App root */
@@ -730,25 +776,163 @@ function App(){
   const [viewAuthorId,setViewAuthorId]=useState(null);
   const cycleTheme=()=>setTheme(t=>t==='light'?'sepia':t==='sepia'?'dark':'light');
   const logout=async()=>{await API.post('/api/auth/logout',{}).catch(()=>{});setCurrentUser(null);showToast('Signed out.');};
-  const goToAuthor=useCallback(id=>{setViewAuthorId(id);nav('authors');},[]);
+
+  /* browser back/forward support: each navigation pushes a history entry
+     carrying enough state (view, current article, author id, scroll y) to
+     restore the exact previous screen on popstate. */
+  const poppingRef=useRef(false);
+  const currentRef=useRef(null);
+  const authorIdRef=useRef(null);
+  const searchRef=useRef('');
+  // Which entry of the open column is being read, if any -- carried in the
+  // URL and in history state exactly like viewAuthorId, so Back leaves the
+  // entry and returns to its column instead of unwinding past both.
+  const [colEntryId,setColEntryId]=useState(null);
+  const colEntryRef=useRef(null);
+  useEffect(()=>{currentRef.current=current;},[current]);
+  useEffect(()=>{authorIdRef.current=viewAuthorId;},[viewAuthorId]);
+  useEffect(()=>{searchRef.current=search;},[search]);
+  useEffect(()=>{colEntryRef.current=colEntryId;},[colEntryId]);
+
+  /* Cold start: adopt whatever the URL says, so a shared/bookmarked link opens
+     the screen it names instead of always dumping the reader on Home. */
+  useEffect(()=>{
+    const r=parseRoute(location.hash);
+    if(r.query)setSearch(r.query);
+    if(r.authorId){authorIdRef.current=r.authorId;setViewAuthorId(r.authorId);}
+    if(r.colEntryId){colEntryRef.current=r.colEntryId;setColEntryId(r.colEntryId);}
+    if(r.view==='article'&&r.articleSlug){
+      // Articles are fetched by id everywhere, so resolve the shareable slug
+      // against the list once; ArticleView refetches the full record itself.
+      API.get('/api/articles').then(list=>{
+        const hit=safe(list).find(a=>String(a.slug)===r.articleSlug||String(a.id)===r.articleSlug);
+        if(hit){currentRef.current=hit;setCurrent(hit);setView('article');}
+        else setView('home');
+      }).catch(()=>setView('home'));
+    } else if(r.view&&r.view!=='home'){
+      setView(r.view);
+    }
+    history.replaceState({view:r.view||'home',current:null,authorId:r.authorId||null,
+      colEntryId:r.colEntryId||null,scrollY:0},'',location.href);
+  },[]);
+
+  /* Keep the address bar in step with wherever the app actually is. navTo
+     pushes real history entries; this only rewrites the URL of the entry we
+     are already on, so it never adds a spurious back-step (it also catches
+     the paths that call setView directly rather than going through navTo). */
+  useEffect(()=>{
+    if(poppingRef.current)return;
+    const want=routeFor(view,current,viewAuthorId,search,colEntryId);
+    if(location.hash!==want){
+      const st=history.state||{};
+      history.replaceState({...st,view,current:view==='article'?current:null,
+        authorId:viewAuthorId||null,colEntryId:colEntryId||null},'',want);
+    }
+  },[view,current,viewAuthorId,search,colEntryId]);
+
+  useEffect(()=>{
+    const onScroll=()=>{
+      if(poppingRef.current)return;
+      const st=history.state||{};
+      history.replaceState({...st,scrollY:window.scrollY},'',location.href);
+    };
+    window.addEventListener('scroll',onScroll,{passive:true});
+    return ()=>window.removeEventListener('scroll',onScroll);
+  },[]);
+
+  // Depth of history entries this session has pushed but not yet popped --
+  // lets goBack() tell "there's somewhere real to go back to" apart from
+  // "we're at the first screen the user landed on" (where history.back()
+  // would leave the app, e.g. to whatever site linked here).
+  const navDepthRef=useRef(0);
+
+  useEffect(()=>{
+    const onPop=e=>{
+      // No state means the entry didn't come from navTo -- someone edited the
+      // hash, or followed an in-page link to one. Read the URL instead.
+      const st=e.state||(()=>{
+        const r=parseRoute(location.hash);
+        return {view:r.view||'home',current:null,authorId:r.authorId||null,
+                colEntryId:r.colEntryId||null,scrollY:0};
+      })();
+      poppingRef.current=true;
+      navDepthRef.current=Math.max(0,navDepthRef.current-1);
+      setCurrent(st.current||null);
+      setView(st.view||'home');
+      setViewAuthorId(st.authorId||null);
+      setColEntryId(st.colEntryId||null);
+      setReadMode(false);
+      // The restored view re-renders (and refetches) after this handler, so on
+      // the first frame the document is still too short to scroll back down to
+      // y -- the browser clamps to 0 and the reader loses their place. Retry
+      // over a few frames until the page is actually tall enough.
+      const y=st.scrollY||0;
+      if(!y){requestAnimationFrame(()=>{window.scrollTo(0,0);poppingRef.current=false;});return;}
+      let tries=0;
+      const restore=()=>{
+        window.scrollTo(0,y);
+        const short=document.documentElement.scrollHeight-window.innerHeight<y;
+        if(short&&tries++<30){requestAnimationFrame(restore);return;}
+        poppingRef.current=false;
+      };
+      requestAnimationFrame(restore);
+    };
+    window.addEventListener('popstate',onPop);
+    return ()=>window.removeEventListener('popstate',onPop);
+  },[]);
+
+  const navTo=useCallback((newView,extra={})=>{
+    const authorId=newView==='authors'?('authorId' in extra?extra.authorId:authorIdRef.current):null;
+    // Only a column view carries an entry id, and only when the caller names
+    // one -- so navigating to the column itself (from its own entry) clears
+    // it, which is what makes "‹ Back to the column" a real history step.
+    const colEntry=newView.indexOf('col:')===0&&('colEntryId' in extra)
+      ?extra.colEntryId:null;
+    colEntryRef.current=colEntry;
+    setColEntryId(colEntry);
+    if(!poppingRef.current){
+      history.pushState({
+        view:newView,
+        current:newView==='article'?currentRef.current:null,
+        authorId,
+        colEntryId:colEntry,
+        scrollY:0
+      },'',routeFor(newView,currentRef.current,authorId,searchRef.current,colEntry));
+      navDepthRef.current+=1;
+    }
+    setView(newView);
+    setReadMode(false);
+    // Instant, not smooth: a smooth scroll runs across the new view's first
+    // renders and gets interrupted by them, which is what left readers part
+    // way down section/map pages instead of at the top.
+    window.scrollTo(0,0);
+  },[]);
+
+  // Used by every "‹ Back" control in the app instead of navigating to a
+  // fixed destination (a section, a category, home) -- so "back" always
+  // means "the screen I was actually just looking at," the same way the
+  // browser's own back button already behaves via the popstate handler
+  // above. Falls back to Home only when there's no real history to unwind
+  // (e.g. the article was opened directly from an external link).
+  const goBack=useCallback(()=>{
+    if(navDepthRef.current>0){history.back();}
+    else{navTo('home');}
+  },[navTo]);
+
+  const goToAuthor=useCallback(id=>{authorIdRef.current=id;setViewAuthorId(id);navTo('authors',{authorId:id});},[navTo]);
 
   const go=useCallback(articleOrView=>{
     if(typeof articleOrView==='object'&&articleOrView!==null){
+      currentRef.current=articleOrView;
       setCurrent(articleOrView);
     } else {
-      setView(articleOrView);
-      setReadMode(false);
-      window.scrollTo({top:0,behavior:'smooth'});
+      navTo(articleOrView);
     }
-  },[]);
+  },[navTo]);
 
-  const nav=useCallback(v=>{
-    setView(v);
-    setReadMode(false);
-    window.scrollTo({top:0,behavior:'smooth'});
-  },[]);
+  const nav=useCallback(v=>navTo(v),[navTo]);
 
-  const props={setView:nav,go,toast:showToast};
+  const props={setView:nav,go,toast:showToast,goBack};
 
   const sectionSlugs=useMemo(()=>new Set(sections.map(s=>s.slug)),[sections]);
   const catSlugs=useMemo(()=>new Set(categories.map(c=>c.slug)),[categories]);
@@ -757,21 +941,26 @@ function App(){
     switch(view){
       case 'home':       return <HomePage {...props} sections={sections}/>;
       case 'article':    return current
-        ?<ArticleView article={current} setView={nav} go={obj=>{setCurrent(obj);nav('article');}} readMode={readMode} setReadMode={setReadMode} toast={showToast} currentUser={currentUser} goToAuthor={goToAuthor}/>
+        ?<ArticleView article={current} setView={nav} go={obj=>{go(obj);nav('article');}} goBack={goBack} readMode={readMode} setReadMode={setReadMode} toast={showToast} currentUser={currentUser} goToAuthor={goToAuthor}/>
         :<HomePage {...props} sections={sections}/>;
       case 'puzzles':    return <PuzzlesPage toast={showToast}/>;
       case 'timeline':   return <TimelinePage {...props}/>;
-      case 'map':        return <MapPage {...props}/>;
+      case 'map':        return <MapPage {...props} currentUser={currentUser}/>;
       case 'library':    return <LibraryPage toast={showToast} currentUser={currentUser} setView={nav}/>;
       case 'newsletter': return <NewsletterPage {...props} currentUser={currentUser}/>;
       case 'authors':    return <AuthorsPage {...props} initAuthorId={viewAuthorId} onAuthorShown={()=>setViewAuthorId(null)}/>;
-      case 'admin':      return <AdminPanel setView={nav} go={obj=>{setCurrent(obj);nav('article');}} currentUser={currentUser}/>;
+      case 'admin':      return <AdminPanel setView={nav} go={obj=>{go(obj);nav('article');}} currentUser={currentUser}/>;
       case 'search':     return <SearchPage query={search} {...props}/>;
       case 'about':       return <AboutPage setView={nav}/>;
       case 'submissions': return <SubmissionsPage setView={nav}/>;
+      case 'ebook':       return <PublicEbookRequestPage toast={showToast}/>;
+      case 'letters':    return <PublicLettersPage toast={showToast}/>;
       case 'columns':    return <ColumnsPage {...props}/>;
       default:
-        if(view.indexOf('col:')===0)return <ColumnPage slug={view.slice(4)} setView={nav}/>;
+        if(view.indexOf('col:')===0)return <ColumnPage slug={view.slice(4)} setView={nav}
+          entryId={colEntryId} goBack={goBack}
+          onOpenEntry={id=>navTo(view,{colEntryId:id})}
+          onCloseEntry={()=>navTo(view,{colEntryId:null})}/>;
         if(sectionSlugs.has(view))return <SectionPage section={view} sections={sections} {...props}/>;
         if(catSlugs.has(view))return <CatPage cat={view} {...props}/>;
         return <HomePage {...props} sections={sections}/>;
@@ -783,10 +972,11 @@ function App(){
   return(
     <>
       <div id="progress-bar"/>
-      <Masthead view={view} setView={nav} search={search} setSearch={setSearch} readMode={readMode}
+      <Masthead view={view} setView={nav} search={search} setSearch={setSearch} readMode={readMode} setReadMode={setReadMode}
         theme={theme} cycleTheme={cycleTheme} currentUser={currentUser} sections={sections}
         onLogin={()=>setShowLogin(true)} onLogout={logout}/>
       <main>{renderPage()}</main>
+      {!readMode&&view!=='home'&&<button className="back-nav" onClick={goBack} title="Back">‹</button>}
       {!readMode&&<Footer setView={nav}/>}
       {toast&&<Toast msg={toast.m} type={toast.t} onDone={()=>setToast(null)}/>}
       {showLogin&&<LoginModal onLogin={u=>{setCurrentUser(u);showToast(`Welcome, ${u.username}!`);}} onClose={()=>setShowLogin(false)}/>}

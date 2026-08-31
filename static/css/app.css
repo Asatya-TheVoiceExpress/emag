@@ -28,6 +28,9 @@
 [data-theme="dark"] .ql-toolbar .ql-stroke{stroke:var(--ink)}
 [data-theme="dark"] .ql-toolbar .ql-fill{fill:var(--ink)}
 [data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg)}
+/* The masthead mark is a white glyph on a black plate, so on dark paper the
+   plate vanishes and the mark loses its shape. Give it an edge to sit on. */
+[data-theme="dark"] .mh-logo-img{outline:1px solid var(--g400);outline-offset:0}
 [data-theme="dark"] .cw-cell.blk{background:#0a0a0a}
 [data-theme="dark"] img{opacity:.88}
 
@@ -295,10 +298,10 @@ textarea{resize:vertical;min-height:80px}
 .art-metabar{display:flex;align-items:center;justify-content:space-between;padding:.58rem 0;border-top:var(--rt);border-bottom:var(--rt);margin-bottom:1.4rem;gap:.5rem;flex-wrap:wrap}
 .art-metaleft{font-family:var(--fm);font-size:.57rem;color:var(--g500);text-transform:uppercase;letter-spacing:.05em;display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
 .art-metaright{display:flex;gap:.32rem;align-items:center;flex-wrap:wrap}
-.lang-bar{display:flex;gap:.32rem;flex-wrap:wrap;margin-bottom:1.2rem;padding:.58rem .72rem;background:var(--g100);border:var(--rt);align-items:center}
+.lang-bar{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.2rem;padding:.58rem .72rem;background:var(--g100);border:var(--rt);align-items:center}
 .lang-lbl{font-family:var(--fm);font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--g600);margin-right:.22rem;flex-shrink:0}
-.lang-btn{font-family:var(--fm);font-size:.57rem;padding:.2rem .48rem;border:var(--rt);cursor:pointer;transition:all .15s;background:transparent;color:var(--ink)}
-.lang-btn:hover,.lang-btn.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lang-select{font-family:var(--fm);font-size:.62rem;padding:.22rem .4rem;border:var(--rt);cursor:pointer;background:var(--paper);color:var(--ink)}
+.lang-select:disabled{opacity:.55;cursor:default}
 .art-fimg{margin-bottom:1.65rem}
 .art-fimg img{display:block;width:100%;height:auto;border:var(--rt)}   /* never crop the feature image */
 .art-fimg-cap{font-family:var(--fm);font-size:.58rem;color:var(--g500);padding:.32rem 0;border-bottom:var(--rt);margin-top:.35rem}
@@ -321,47 +324,25 @@ textarea{resize:vertical;min-height:80px}
 .art-content .ve-dropcap::first-letter{float:left;font-family:var(--fh);font-size:4.2rem;line-height:.78;padding:.02em .12em 0 0;font-weight:900}
 .art-divider{text-align:center;font-family:var(--fh);font-size:1.2rem;color:var(--g300);margin:2.5rem 0;letter-spacing:.5em}
 
-/* READ MODE */
+/* READ MODE — distraction-free, single column, no fancy layout */
 .read-mode #masthead .nav-bar{display:none}
 .read-mode .art-metaright,.read-mode .tags-sect,.read-mode .cit-sect,.read-mode .author-card,.read-mode .related-sect,.read-mode .lang-bar,.read-mode .breadcrumb,.read-mode .art-nav-row,.read-mode .back-top{display:none!important}
-/* persistent escape from distraction-free reading */
-.read-escape{position:fixed;top:1rem;right:1rem;z-index:1200;font-family:var(--fm);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;background:var(--ink);color:var(--paper);border:none;padding:.55em .95em;cursor:pointer;box-shadow:var(--sh)}
-.read-escape:hover{opacity:.85}
+.read-mode-bar{align-items:center}
+/* .mh-top is a 1fr/auto/1fr grid, so its children stretch to fill the whole
+   column -- which turned read mode's back button into a half-width empty box.
+   Pin the outer two to their own edges instead. */
+.read-mode-bar>:first-child{justify-self:start}
+.read-mode-bar>:last-child{justify-self:end}
 /* article back + breadcrumb row */
 .art-nav-row{display:flex;align-items:center;gap:.9rem;margin-bottom:.55rem}
 .art-back{font-family:var(--fm);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;border:var(--rt);background:var(--paper);color:var(--ink);padding:.32em .75em;cursor:pointer;white-space:nowrap}
 .art-back:hover{background:var(--ink);color:var(--paper)}
+/* A column page offers both "step back where I came from" and "go to the
+   Columns index" -- they are different intentions and need to sit together. */
+.col-navbar{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.9rem}
 .art-nav-row .breadcrumb{margin:0}
 .read-mode .art-content{font-size:1.08rem;line-height:1.88}
 .read-mode .art-title{font-size:clamp(1.7rem,4vw,2.5rem)}
-@media(min-width:900px){
-  .read-mode .art-wrap{max-width:1280px;padding:.75rem 1.2rem}
-  /* column-fill:balance stops all text piling into col-1;
-     orphans/widows prevent lone lines stranded at col tops/bottoms;
-     break-inside:avoid-column on p stops mid-sentence column splits */
-  .read-mode .art-content{
-    column-count:2;column-gap:2.8rem;
-    column-rule:1px solid var(--g300);
-    column-fill:balance;
-    orphans:3;widows:3;
-    max-width:none;margin:0
-  }
-  .read-mode .art-content>p{break-inside:avoid-column}
-  /* h2/h3 span full width (section break) — break-after:avoid keeps heading with its paragraph */
-  .read-mode .art-content h2,.read-mode .art-content h3{
-    column-span:all;padding-top:.25rem;break-after:avoid
-  }
-  .read-mode .art-content blockquote{column-span:all;break-inside:avoid}
-  /* Images: DON'T span all — that's what creates the large pre-image gap.
-     Let them flow within their column at natural width. */
-  .read-mode .art-content img{
-    max-width:100%;height:auto;
-    break-inside:avoid;
-    margin:1.2em auto;display:block
-  }
-  .read-mode .art-content figure{break-inside:avoid}
-  .read-mode .art-title{font-size:clamp(1.8rem,4vw,2.8rem)}
-}
 
 /* AUTHOR CARD */
 .author-card{border:var(--rule);padding:1.35rem;margin-top:2.5rem;display:grid;grid-template-columns:76px 1fr;gap:1.15rem;align-items:start}
@@ -391,6 +372,19 @@ textarea{resize:vertical;min-height:80px}
 /* BACK TO TOP */
 .back-top{position:fixed;bottom:2rem;right:2rem;width:42px;height:42px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;z-index:400;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s;box-shadow:var(--sh)}
 .back-top.visible{opacity:1;transform:translateY(0)}
+
+/* GLOBAL BACK NAV -- persistent "‹" affordance on every non-home view,
+   mirroring .back-top's placement/style on the opposite corner. Always
+   returns to whatever screen the reader was actually on (browser history),
+   never a fixed destination. */
+.back-nav{position:fixed;bottom:2rem;left:2rem;width:42px;height:42px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.3rem;z-index:400;box-shadow:var(--sh)}
+.back-nav:hover{opacity:.85}
+@media(max-width:600px){.back-nav{bottom:1.2rem;left:1.2rem;width:38px;height:38px}}
+
+/* Leaflet ships its control containers at z-index 1000, which put the zoom
+   +/- buttons on top of the sticky masthead (z-index 900) while scrolling.
+   Keep them above the tiles but under the chrome. */
+.leaflet-top,.leaflet-bottom{z-index:800}
 
 /* ANNOTATIONS */
 .ann-panel{position:fixed;right:1.5rem;top:50%;transform:translateY(-50%);width:265px;background:var(--paper);border:var(--rule);box-shadow:var(--sh);z-index:500;max-height:72vh;overflow-y:auto;display:flex;flex-direction:column}
@@ -579,12 +573,12 @@ textarea{resize:vertical;min-height:80px}
 .kbd-chip{display:inline-block;font-family:var(--fm);font-size:.56rem;background:var(--g200);border:var(--rt);padding:.06rem .32rem;border-radius:2px;letter-spacing:.02em;white-space:nowrap}
 .shortcuts-grid{background:var(--g100);border:var(--rt);padding:.75rem 1rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.32rem .72rem;margin-top:.28rem}
 /* image insert modal */
-.img-modal-bg{position:fixed;inset:0;background:rgba(10,10,10,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1.5rem}
-.img-modal-box{background:var(--paper);border:var(--rk);padding:1.65rem 1.85rem;width:min(480px,92vw);box-shadow:var(--sh)}
+.img-modal-bg{position:fixed;inset:0;background:rgba(10,10,10,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1.5rem;cursor:pointer}
+.img-modal-box{background:var(--paper);border:var(--rk);padding:1.65rem 1.85rem;width:min(480px,92vw);box-shadow:var(--sh);cursor:default}
 
 /* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(10,10,10,.82);z-index:800;display:flex;align-items:center;justify-content:center;padding:1.5rem}
-.modal{background:var(--paper);border:var(--rk);width:100%;max-width:550px;max-height:90vh;overflow-y:auto}
+.modal-overlay{position:fixed;inset:0;background:rgba(10,10,10,.82);z-index:800;display:flex;align-items:center;justify-content:center;padding:1.5rem;cursor:pointer}
+.modal{background:var(--paper);border:var(--rk);width:100%;max-width:550px;max-height:90vh;overflow-y:auto;cursor:default}
 .modal-hdr{padding:1.02rem 1.3rem;border-bottom:var(--rule);display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:var(--paper);flex-shrink:0}
 .modal-title{font-family:var(--fh);font-size:1.02rem;font-weight:700}
 .modal-close{cursor:pointer;font-size:1.2rem;line-height:1;color:var(--paper)}
@@ -613,7 +607,9 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
 .pub-card:hover{transform:translateY(-5px)}
 .pub-cover{width:100%;aspect-ratio:2/3;border:var(--rule);position:relative;overflow:hidden;
   box-shadow:5px 6px 0 rgba(0,0,0,.09),2px 2px 0 rgba(0,0,0,.05)}
-.pub-cover>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* contain, not cover: real covers are A4-ish (1:1.414), the frame is 2:3, and
+   `cover` sliced the masthead marquee off both sides of every card. */
+.pub-cover>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
 .pub-cover-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
   justify-content:center;padding:1.2rem;text-align:center}
 .pub-badge{position:absolute;bottom:0;left:0;right:0;font-family:var(--fm);font-size:.44rem;
@@ -780,9 +776,17 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
 .su-numpad .erase{font-family:var(--fm);font-size:.6rem;letter-spacing:.04em;width:58px}
 .su-numpad .notes-btn{font-family:var(--fm);font-size:.58rem;letter-spacing:.06em;width:66px;text-transform:uppercase}
 /* Crossword */
+.cw-active-clue{font-family:var(--fb);font-size:.88rem;line-height:1.4;background:var(--g100);border:var(--rt);padding:.5rem .75rem;margin-bottom:.6rem;min-height:1.4em}
+.cw-active-clue .cw-clue-n{font-family:var(--fm);font-weight:700;margin-right:.4rem;color:var(--ink)}
 .cw-outer{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cw-keyboard{display:none;flex-direction:column;gap:.28rem;align-items:center;margin:.85rem 0}
+.cw-kb-row{display:flex;gap:.24rem;justify-content:center}
+.cw-keyboard button{min-width:26px;height:38px;padding:0 .3rem;font-family:var(--fh);font-size:.86rem;font-weight:700;border:var(--rule);background:var(--paper);color:var(--ink);cursor:pointer;transition:all .15s}
+.cw-keyboard button:active{background:var(--ink);color:var(--paper)}
+.cw-kb-wide{min-width:140px;font-family:var(--fm)!important;font-size:.62rem!important;letter-spacing:.06em;text-transform:uppercase}
+@media(max-width:768px){.cw-keyboard{display:flex}}
 .cw-grid{display:grid;border:2px solid var(--ink);border-right:none;border-bottom:none;width:fit-content}
-.cw-cell{width:38px;height:38px;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);position:relative;background:var(--paper);cursor:pointer;transition:background .1s;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:1rem;font-weight:700;text-transform:uppercase;color:var(--ink)}
+.cw-cell{width:var(--cw-cell,38px);height:var(--cw-cell,38px);border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);position:relative;background:var(--paper);cursor:pointer;transition:background .1s;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:1rem;font-weight:700;text-transform:uppercase;color:var(--ink)}
 .cw-cell.blk{background:var(--ink);cursor:default}
 .cw-cell.sel{background:#c5c5c3}
 .cw-cell.whl{background:#e8e8e6}
@@ -810,10 +814,18 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
   .cw-clues-panel{max-height:none}
   .su-cell{width:40px;height:40px;font-size:1rem}
   .su-numpad button{width:40px;height:40px;font-size:1rem}
+  :root{--cw-cell:30px}
+  .cw-cell{font-size:.85rem}
 }
 @media(max-width:430px){
   .su-cell{width:34px;height:34px;font-size:.88rem}
-  .cw-cell{width:28px;height:28px;font-size:.78rem}
+  :root{--cw-cell:24px}
+  .cw-cell{font-size:.72rem}
+  .cw-num{font-size:.36rem}
+}
+@media(max-width:360px){
+  :root{--cw-cell:21px}
+  .cw-cell{font-size:.64rem}
 }
 
 /* AUTHOR PROFILE / LINKTREE */
@@ -836,8 +848,8 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
 .ap-divider{font-family:var(--fm);font-size:.59rem;letter-spacing:.12em;text-transform:uppercase;color:var(--g500);margin-bottom:.95rem;border-top:var(--rt);padding-top:.95rem;text-align:left}
 
 /* LOGIN MODAL */
-.login-overlay{position:fixed;inset:0;background:rgba(10,10,10,.78);z-index:1200;display:flex;align-items:center;justify-content:center;padding:1.5rem}
-.login-card{background:var(--paper);border:var(--rk);width:100%;max-width:380px}
+.login-overlay{position:fixed;inset:0;background:rgba(10,10,10,.78);z-index:1200;display:flex;align-items:center;justify-content:center;padding:1.5rem;cursor:pointer}
+.login-card{background:var(--paper);border:var(--rk);width:100%;max-width:380px;cursor:default}
 .login-hdr{background:var(--ink);color:var(--paper);padding:.95rem 1.3rem;display:flex;justify-content:space-between;align-items:center}
 .login-hdr-title{font-family:var(--fh);font-size:1.05rem;font-weight:700}
 .login-body{padding:1.4rem}
@@ -932,7 +944,7 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
 
 /* PRINT */
 @media print{
-  #masthead,#progress-bar,.art-metaright,.ann-panel,.ann-popup,.mob-overlay,.toast,.btn-s,.btn-p,.btn-o,.lang-bar,.related-sect,.tags-sect,.back-top,footer{display:none!important}
+  #masthead,#progress-bar,.art-metaright,.ann-panel,.ann-popup,.mob-overlay,.toast,.btn-s,.btn-p,.btn-o,.lang-bar,.related-sect,.tags-sect,.back-top,.back-nav,footer{display:none!important}
   body{font-size:11pt;color:#000;background:#fff}
   .art-wrap{max-width:100%;padding:0}
   .art-title{font-size:20pt;margin-bottom:.4em}
@@ -949,6 +961,9 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
   .nav-bar{display:none}
   .nav-grouped{display:none!important}
   .mh-top{padding:.4rem .8rem}
+  /* bigger tap target for exiting read mode by touch (no Esc key on phones) */
+  .read-mode-bar .art-back{padding:.6em .9em;font-size:.66rem}
+  .read-mode-bar span{display:none}
   .mh-logo-img{height:30px;width:30px}
   .mh-brand h1{font-size:1.35rem}
   .mh-date-side{display:none}
@@ -1172,8 +1187,8 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
 .link-preview .lp-desc{font-size:.82rem;line-height:1.45;color:var(--g600);padding:.1rem .7rem .65rem;text-align:left}
 
 /* media lightbox / carousel -- click any grouped image to browse, full image (never cropped) */
-.lightbox{position:fixed;inset:0;z-index:2000;background:rgba(10,10,10,.94);display:flex;align-items:center;justify-content:center}
-.lightbox .lb-stage{margin:0;display:flex;flex-direction:column;align-items:center}
+.lightbox{position:fixed;inset:0;z-index:2000;background:rgba(10,10,10,.94);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lightbox .lb-stage{margin:0;display:flex;flex-direction:column;align-items:center;cursor:default}
 .lightbox .lb-stage img{max-width:90vw;max-height:82vh;width:auto;height:auto;object-fit:contain;border:1px solid rgba(255,255,255,.18)}
 .lightbox figcaption{margin-top:.75rem;text-align:center;color:#e8e8e6;max-width:80vw}
 .lightbox .lb-count{color:rgba(255,255,255,.5);font-family:var(--fm);font-size:.6rem;letter-spacing:.12em;margin-right:.8em}
@@ -1224,3 +1239,68 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
 .panel-text{font-family:var(--fb);font-size:.9rem;color:var(--g700);padding:.3rem .5rem}
 @media(max-width:680px){.col-head{flex-direction:column}.col-cal-cell{min-height:54px}}
 
+
+
+/* ── Touch ergonomics (mobile only) ───────────────────────────────────────
+   Measured at a 390px viewport: 11 of 12 interactive elements on the home
+   page were under 36px, the header icon buttons being 34x34. iOS HIG asks for
+   44x44, Material for 48x48. These rules grow the HIT AREA without changing
+   the visual weight of the chrome -- the icons stay the size they are, the
+   tappable box around them gets big enough for a thumb. Desktop is untouched;
+   at a mouse's precision 34px is fine and the compact masthead is deliberate. */
+@media(max-width:768px){
+  .mh-act, .btn-s, .bs-divider-act, .nav-item, .pill,
+  header button, nav button, .head-act{
+    min-height:44px; min-width:44px;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  /* inputs need the height but must keep their own width */
+  input[type=text], input[type=search], input[type=email], select, textarea{
+    min-height:44px;
+  }
+  /* a tap target that sits inside a dense row should not force the row taller
+     than its own line-height -- give it padding instead of a rigid box */
+  .bs-divider .bs-divider-act{ padding:0 .7rem; }
+}
+
+/* ── reader desk (static build only -- appended by ve-push.py) ── */
+.ve-desk{position:fixed;right:1rem;bottom:1rem;z-index:9999;font-family:var(--fb,inherit);}
+.ve-desk-pill{background:#111;color:#fff;border:1px solid #111;border-radius:2rem;
+  padding:.5rem 1rem;font-size:.85rem;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);}
+.ve-desk-pill:hover{background:#333;}
+.ve-desk-panel{position:absolute;right:0;bottom:3rem;width:min(23rem,calc(100vw - 2rem));
+  max-height:min(30rem,70vh);overflow-y:auto;background:#fff;color:#111;
+  border:1px solid #111;padding:1rem;box-shadow:0 6px 24px rgba(0,0,0,.28);}
+.ve-desk-h{margin:0 0 .5rem;font-size:1rem;}
+.ve-desk-h4{margin:.9rem 0 .35rem;font-size:.8rem;text-transform:uppercase;
+  letter-spacing:.06em;border-bottom:1px solid #ddd;padding-bottom:.2rem;}
+.ve-desk-note{font-size:.75rem;color:#555;margin:.4rem 0;}
+.ve-desk-empty{font-size:.78rem;color:#888;margin:.2rem 0;}
+.ve-desk-row{display:flex;gap:.4rem;align-items:center;justify-content:space-between;}
+.ve-desk-input{width:100%;padding:.45rem;border:1px solid #111;margin:.3rem 0;font-size:.85rem;}
+.ve-desk-btn{background:#fff;color:#111;border:1px solid #111;padding:.35rem .7rem;
+  font-size:.78rem;cursor:pointer;}
+.ve-desk-btn:hover{background:#111;color:#fff;}
+.ve-desk-msg{font-size:.75rem;color:#a00;margin:.3rem 0 0;min-height:1em;}
+.ve-desk-item{border-bottom:1px solid #eee;padding:.45rem 0;font-size:.82rem;}
+.ve-desk-item strong{display:block;margin-bottom:.2rem;}
+.ve-desk-badge{display:inline-block;background:#111;color:#fff;font-size:.66rem;
+  padding:.1rem .4rem;text-transform:uppercase;letter-spacing:.04em;}
+.ve-desk-badge-wait{background:#fff;color:#555;border:1px solid #bbb;}
+.ve-desk-badge-no{background:#a00;}
+.ve-desk-reply{margin:.35rem 0;padding:.4rem .5rem;background:#f6f6f6;
+  border-left:2px solid #111;font-size:.8rem;white-space:pre-wrap;}
+.ve-desk-link{display:inline-block;margin-left:.4rem;font-size:.78rem;}
+.ve-desk-when{color:#888;font-size:.7rem;margin-top:.2rem;}
+@media (prefers-color-scheme:dark){
+  .ve-desk-panel{background:#141414;color:#eee;border-color:#eee;}
+  .ve-desk-h4{border-bottom-color:#333;}
+  .ve-desk-item{border-bottom-color:#262626;}
+  .ve-desk-note,.ve-desk-empty,.ve-desk-when{color:#999;}
+  .ve-desk-input{background:#000;color:#eee;border-color:#eee;}
+  .ve-desk-btn{background:#141414;color:#eee;border-color:#eee;}
+  .ve-desk-btn:hover{background:#eee;color:#111;}
+  .ve-desk-reply{background:#1e1e1e;border-left-color:#eee;}
+  .ve-desk-badge{background:#eee;color:#111;}
+  .ve-desk-badge-wait{background:#141414;color:#bbb;border-color:#555;}
+}

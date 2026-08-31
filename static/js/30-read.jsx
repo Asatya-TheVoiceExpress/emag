@@ -1,6 +1,26 @@
 /* The Voice Express SPA -- 30-read.jsx
    HomePage, CatPage, SectionPage, ArticleHistory, SeriesGrid, ArticleView
    Loaded in order as type=text/babel (shared global scope). Do not reorder. */
+
+/* ── Local annotations (anonymous readers only) ──────────────────────────
+   Signed-in readers' annotations live in the DB (/api/annotations). Readers
+   without an account never hit that route -- their notes stay private to
+   this browser in localStorage instead. In the static build (window.VE_STATIC,
+   no accounts at all) this is the only path annotations ever take -- unless
+   a Sheet-backed endpoint is configured, see saveAnn below. */
+var ANN_LS_KEY='ve-local-annotations';
+function lsAllAnns(){ try{return JSON.parse(localStorage.getItem(ANN_LS_KEY)||'{}');}catch(e){return {};} }
+function lsAnnsFor(articleId){ return lsAllAnns()[articleId]||[]; }
+function lsSaveAnn(articleId,ann){
+  const all=lsAllAnns();
+  all[articleId]=[...(all[articleId]||[]),ann];
+  try{localStorage.setItem(ANN_LS_KEY,JSON.stringify(all));}catch(e){}
+}
+function lsDeleteAnn(articleId,id){
+  const all=lsAllAnns();
+  all[articleId]=(all[articleId]||[]).filter(a=>a.id!==id);
+  try{localStorage.setItem(ANN_LS_KEY,JSON.stringify(all));}catch(e){}
+}
 function HomePage({setView,go,toast,sections}){
   const PAGE=20;
   const [articles,setArticles]=useState([]);
@@ -380,7 +400,7 @@ function MediaLightbox({items,index:i0,onClose}){
   );
 }
 
-function ArticleView({article:init,setView,go,readMode,setReadMode,toast,currentUser,goToAuthor}){
+function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,currentUser,goToAuthor}){
   const [art,setArt]=useState(init);
   const [anns,setAnns]=useState([]);
   const [showAnns,setShowAnns]=useState(false);
@@ -404,10 +424,15 @@ function ArticleView({article:init,setView,go,readMode,setReadMode,toast,current
     setShowAnns(false);
     setPopup(null);
     API.get(`/api/articles/${init.id}`)
-      .then(d=>{setArt(d);setAnns(safe(d.annotations));})
+      .then(d=>{
+        setArt(d);
+        // signed in: DB-backed annotations from the server response.
+        // not signed in: this browser's own local notes for this article.
+        setAnns(currentUser?safe(d.annotations):lsAnnsFor(init.id));
+      })
       .catch(()=>{});
     if(currentUser)API.post('/api/reader/track',{article_id:init.id}).catch(()=>{});
-  },[init?.id]);
+  },[init?.id,currentUser]);
 
   const translate=async target=>{
     const native=art?.language||'en';
@@ -437,16 +462,35 @@ function ArticleView({article:init,setView,go,readMode,setReadMode,toast,current
 
   const saveAnn=async()=>{
     if(!popup||!popNote.trim())return;
-    const d=await API.post('/api/annotations',{article_id:art.id,selected_text:popup.text,note:popNote}).catch(()=>({error:'Failed'}));
-    if(d.error){toast(d.error,'err');return;}
-    setAnns(prev=>[...prev,d]);
+    if(currentUser){
+      const d=await API.post('/api/annotations',{article_id:art.id,selected_text:popup.text,note:popNote}).catch(()=>({error:'Failed'}));
+      if(d.error){toast(d.error,'err');return;}
+      setAnns(prev=>[...prev,d]);
+    }else{
+      // No account -- kept private to this browser either way. On the live
+      // site that's the whole story (no server involved at all). In the
+      // static build (window.VE_STATIC, no accounts exist there ever) any
+      // write that would otherwise need a DB also goes to the Apps Script
+      // Sheet, same convention as comments/likes/letters -- fire-and-forget,
+      // doesn't block the local save or round-trip back into `anns`.
+      const d={id:'local-'+Date.now(),article_id:art.id,selected_text:popup.text,note:popNote,created_at:new Date().toISOString()};
+      lsSaveAnn(art.id,d);
+      setAnns(prev=>[...prev,d]);
+      if(typeof window!=='undefined'&&window.VE_STATIC){
+        API.post('/api/annotations',{article_id:art.id,selected_text:popup.text,note:popNote}).catch(()=>{});
+      }
+    }
     setShowAnns(true);
     setPopup(null);setPopNote('');
     toast('Annotation saved.');
   };
 
   const delAnn=async id=>{
-    await API.del(`/api/annotations/${id}`).catch(()=>{});
+    if(typeof id==='string'&&id.indexOf('local-')===0){
+      lsDeleteAnn(art.id,id);
+    }else{
+      await API.del(`/api/annotations/${id}`).catch(()=>{});
+    }
     setAnns(prev=>prev.filter(a=>a.id!==id));
   };
 
@@ -529,14 +573,13 @@ function ArticleView({article:init,setView,go,readMode,setReadMode,toast,current
 
   return(
     <div className={readMode?'read-mode':''}>
-      {readMode&&<button className="read-escape" onClick={()=>setReadMode(false)} title="Exit reading view (Esc)">Exit Reading ✕</button>}
       <div className="art-wrap">
         <div className="print-hdr">
           Voice Express — Truth Takes Time<br/>
           <span style={{fontSize:'.7rem',fontWeight:400}}>{fmtDate(art.published_at)}</span>
         </div>
         <div className="art-nav-row">
-          <button className="art-back" onClick={()=>setView(art.section_slug||art.category_slug||'home')}>‹ Back</button>
+          <button className="art-back" onClick={()=>goBack?goBack():setView(art.section_slug||art.category_slug||'home')}>‹ Back</button>
           <div className="breadcrumb">
             <a onClick={()=>setView('home')}>Home</a>
             <span>›</span>
@@ -597,7 +640,7 @@ function ArticleView({article:init,setView,go,readMode,setReadMode,toast,current
           </div>
           <div className="art-metaright">
             <button className={`btn-s${readMode?' on':''}`} onClick={()=>setReadMode(v=>!v)} title="Toggle distraction-free reading">{readMode?'Exit Read Mode':'Read Mode'}</button>
-            <button className="btn-s" onClick={()=>window.open('/api/articles/'+art.id+'/print')} title="Download this article as a designed Gazette (logo cover, typeset, QR colophon)">Gazette ↓</button>
+            <button className="btn-s" onClick={()=>window.open('static/media/gazette_'+art.id+'.html','_blank')} title="Download this article as a designed Gazette (logo cover, typeset, QR colophon)">Gazette ↓</button>
             <button className={`btn-s${showAnns?' on':''}`} onClick={()=>setShowAnns(v=>!v)} title="View/add annotations">
               {showAnns?'Hide Notes':'Annotate'}{anns.length>0?` (${anns.length})`:''}
             </button>
@@ -606,19 +649,13 @@ function ArticleView({article:init,setView,go,readMode,setReadMode,toast,current
 
         <div className="lang-bar">
           <span className="lang-lbl">Read in:</span>
-          {Object.entries(LANGS).map(([code,name])=>(
-            <button key={code}
-              className={`lang-btn${lang===code?' on':''}`}
-              onClick={()=>translate(code)}
-              disabled={translating}
-              style={{opacity:translating?0.55:1}}
-              title={lang===code&&code!==art.language?`Currently showing ${name} translation`:''}
-            >{name}</button>
-          ))}
+          <select className="lang-select" value={lang} disabled={translating}
+            onChange={e=>translate(e.target.value)}>
+            {Object.entries(LANGS).filter(([code])=>code===art.language||TRANSLATABLE_LANGS[code]).map(([code,name])=>(
+              <option key={code} value={code}>{name}{code===art.language?' (original)':''}</option>
+            ))}
+          </select>
           {translating&&<span style={{fontFamily:'var(--fm)',fontSize:'.56rem',color:'var(--g500)',marginLeft:'.32rem'}}>Translating…</span>}
-          {translated&&lang!==art.language&&(
-            <button className="btn-s" style={{marginLeft:'auto',fontSize:'.54rem'}} onClick={()=>{setTranslated(null);setLang(art.language);}}>← Original</button>
-          )}
         </div>
 
         {art.featured_image&&(
@@ -752,7 +789,12 @@ function ArticleView({article:init,setView,go,readMode,setReadMode,toast,current
             ))}
         </div>
       )}
-      {art?.id&&<CommentsSection articleId={art.id} toast={toast}/>}
+      {art?.id&&(
+        <div className="art-wrap">
+          {typeof window!=='undefined'&&window.VE_STATIC&&<LikeButton articleId={art.id}/>}
+          <CommentsSection articleId={art.id} toast={toast}/>
+        </div>
+      )}
       <BackToTop/>
     </div>
   );

@@ -19,15 +19,33 @@ function bookletUrl(id, period) {
   if (from && to) u += '&from=' + from + '&to=' + to;
   return u;
 }
-function BookletPicker({ id, label }) {
+function BookletPicker({ id, label, colTitle }) {
+  /* Static build: list the booklets ve-push actually shipped for this column
+     (publications.json), not on-demand periods -- there is no server here. */
+  const [opts, setOpts] = React.useState([]);
+  React.useEffect(() => {
+    API.get('/api/publications').then(d => {
+      const all = (d && d.publications) || [];
+      const pre = String(colTitle || '') + ' ';
+      setOpts(all.filter(p => (p.pub_type === 'booklet' || p.type === 'booklet')
+        && String(p.title || '').indexOf(pre) === 0 && p.download_url));
+    }).catch(() => { });
+  }, [colTitle]);
+  if (!opts.length) return null;
+  const trim = t => {
+    const i = String(t).indexOf('Booklet,');
+    return i < 0 ? t : String(t).slice(i + 8).trim();
+  };
+  /* download_url is absolute ('/static/...'), but this build is served from
+     wherever the Pages repo sits -- a project page lives under /<repo>/, where
+     a leading slash resolves to the domain root and 404s. Everything else in
+     emag's own HTML is relative, so match it. */
+  const rel = u => String(u || '').replace(/^\//, '');
   return (
     <select className="bs-divider-act" defaultValue="" style={{ marginLeft: 'auto', cursor: 'pointer' }}
-      onChange={e => { if (e.target.value) { window.open(bookletUrl(id, e.target.value)); e.target.value = ''; } }}>
+      onChange={e => { if (e.target.value) { window.open(e.target.value, '_blank'); e.target.value = ''; } }}>
       <option value="">{label || 'Booklet ↓'}</option>
-      <option value="week">This week</option>
-      <option value="month">This month</option>
-      <option value="year">This year</option>
-      <option value="all">All time</option>
+      {opts.map(p => <option key={p.id} value={rel(p.download_url)}>{trim(p.title)}</option>)}
     </select>
   );
 }
@@ -66,17 +84,27 @@ function ColumnNameplate({ col, onOpen, compact }) {
 }
 
 /* ---- public: a single column (cards | calendar) ---- */
-function ColumnPage({ slug, setView }) {
+function ColumnPage({ slug, setView, entryId, onOpenEntry, onCloseEntry, goBack }) {
   const [col, setCol] = React.useState(null);
   const [mode, setMode] = React.useState('cards');
-  const [entry, setEntry] = React.useState(null);
-  React.useEffect(() => { setEntry(null); API.get('/api/columns/' + slug).then(setCol).catch(() => setCol(false)); }, [slug]);
+  React.useEffect(() => { API.get('/api/columns/' + slug).then(setCol).catch(() => setCol(false)); }, [slug]);
   if (col === null) return <div className="loading">Loading column</div>;
   if (col === false || col.error) return <div className="empty"><div className="empty-title">Column not found.</div></div>;
-  if (entry) return <ColumnEntryView entry={entry} col={col} onBack={() => setEntry(null)} />;
+  // Which entry is open is decided by the ROUTE, not by local state, so the
+  // browser's Back button leaves the entry and returns to the column -- and a
+  // link to an entry opens that entry rather than the column's card grid.
+  const entry = entryId ? (col.entries || []).find(e => String(e.id) === String(entryId)) : null;
+  if (entryId && entry) return <ColumnEntryView entry={entry} col={col} onBack={onCloseEntry} />;
   return (
     <div className="page" style={col.accent ? { '--accent': col.accent } : null}>
-      <button className="art-back" onClick={() => setView('columns')}>‹ All columns</button>
+      {/* Two distinct moves, because they are two distinct intentions: step
+          back to wherever the reader actually came from (the home rail, a
+          search, the list), or go to the full Columns index on purpose. */}
+      <div className="col-navbar">
+        <button className="art-back" onClick={goBack}>‹ Back</button>
+        <button className="art-back" onClick={() => setView('columns')}>All columns</button>
+      </div>
+      {entryId && !entry && <div className="empty"><div className="empty-title">That entry is no longer here.</div></div>}
       <div className="col-head">
         {col.cover_image && <img className="col-head-cover" src={col.cover_image} alt={col.title} />}
         <div>
@@ -90,13 +118,13 @@ function ColumnPage({ slug, setView }) {
         <div className="ed-tabs">
           {[['cards', 'Cards'], ['calendar', 'Calendar']].map(([m, l]) => <div key={m} className={`ed-tab${mode === m ? ' on' : ''}`} onClick={() => setMode(m)}>{l}</div>)}
         </div>
-        {col.entries && col.entries.length > 0 && <BookletPicker id={col.id} label="Booklet ↓" />}
+        {col.entries && col.entries.length > 0 && <BookletPicker colTitle={col.title} id={col.id} label="Booklet ↓" />}
       </div>
       {mode === 'cards'
         ? (col.entries && col.entries.length
-          ? <div className="cols-grid">{col.entries.map(e => <EntryCard key={e.id} entry={e} onOpen={() => setEntry(e)} />)}</div>
+          ? <div className="cols-grid">{col.entries.map(e => <EntryCard key={e.id} entry={e} onOpen={() => onOpenEntry(e.id)} />)}</div>
           : <div className="empty"><div className="empty-title">No entries yet.</div></div>)
-        : <ColumnCalendar columnId={col.id} entries={col.entries || []} onOpen={setEntry} />}
+        : <ColumnCalendar columnId={col.id} entries={col.entries || []} onOpen={e => onOpenEntry(e && e.id)} />}
     </div>
   );
 }
@@ -181,7 +209,7 @@ function AdminColumns({ toast }) {
   const [cols, setCols] = React.useState([]);
   const [form, setForm] = React.useState(null);
   const [sel, setSel] = React.useState(null);
-  const blank = { title: '', subtitle: '', description: '', cover_image: '', cadence: 'weekly', period_days: 7, accent: '', status: 'draft', is_featured: 0 };
+  const blank = { title: '', subtitle: '', description: '', cover_image: '', cadence: 'weekly', period_days: 7, accent: '', status: 'draft', is_featured: 0, is_private: 0 };
   const load = React.useCallback(() => API.get('/api/columns?status=all').then(d => setCols(safe(d))).catch(() => { }), []);
   React.useEffect(() => { load(); }, [load]);
   const up = async (e, cb) => { const f = e.target.files?.[0]; if (!f) return; const fd = new FormData(); fd.append('file', f); const d = await API.upload('/api/upload', fd).catch(() => ({})); if (d.url) cb(d.url); e.target.value = ''; };
@@ -214,13 +242,14 @@ function AdminColumns({ toast }) {
             <FormField label="Status"><select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}><option value="draft">draft</option><option value="published">published</option></select></FormField>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontFamily: 'var(--fm)', fontSize: '.6rem', textTransform: 'uppercase', margin: '.4rem 0' }}><input type="checkbox" checked={!!form.is_featured} onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked ? 1 : 0 }))} style={{ width: 'auto' }} /> Feature on homepage</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontFamily: 'var(--fm)', fontSize: '.6rem', textTransform: 'uppercase', margin: '.4rem 0' }}><input type="checkbox" checked={!!form.is_private} onChange={e => setForm(f => ({ ...f, is_private: e.target.checked ? 1 : 0 }))} style={{ width: 'auto' }} /> Private (admin/editor only — never public, never in the static mirrors)</label>
           <div style={{ display: 'flex', gap: '.5rem' }}><button className="btn-p" onClick={saveCol}>Save column</button><button className="btn-s" onClick={() => setForm(null)}>Cancel</button></div>
         </div>
       )}
       {cols.length === 0 && !form && <div style={{ fontFamily: 'var(--fm)', fontSize: '.62rem', color: 'var(--g400)', fontStyle: 'italic' }}>No columns yet.</div>}
       {cols.map(c => (
         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '.7rem 1rem', border: 'var(--rt)', marginBottom: '.4rem' }}>
-          <div style={{ flex: 1 }}><strong style={{ fontFamily: 'var(--fh)' }}>{c.title}</strong> <span style={{ fontFamily: 'var(--fm)', fontSize: '.58rem', color: 'var(--g500)', textTransform: 'uppercase' }}>{c.cadence} · {c.status} · {c.entry_count} entries{c.is_featured ? ' · featured' : ''}</span></div>
+          <div style={{ flex: 1 }}><strong style={{ fontFamily: 'var(--fh)' }}>{c.title}</strong> <span style={{ fontFamily: 'var(--fm)', fontSize: '.58rem', color: 'var(--g500)', textTransform: 'uppercase' }}>{c.cadence} · {c.status} · {c.entry_count} entries{c.is_featured ? ' · featured' : ''}{c.is_private ? ' · private' : ''}</span></div>
           <button className="btn-s" onClick={() => setSel(c)}>Entries</button>
           <button className="btn-s" onClick={() => setForm({ ...c })}>Edit</button>
           <button className="btn-s" onClick={() => delCol(c)}>Delete</button>

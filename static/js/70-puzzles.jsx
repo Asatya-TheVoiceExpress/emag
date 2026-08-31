@@ -51,6 +51,27 @@ const DAILY_TOPICS=['history','science','nature','art','music','film','literatur
   'psychology','mythology','language','culture','environment','ocean','space',
   'theatre','poetry','democracy','climate','innovation','tradition','discovery'];
 
+/* Datamuse defs arrive as "<pos>\t<definition>", and the definition often
+   carries a leading domain gloss -- "(astronomy, physics) a celestial body".
+   Truncating at the first comma cut that gloss in half and shipped clues that
+   read just "(astronomy". Cut only on separators OUTSIDE parentheses, then
+   drop any parenthetical left dangling. */
+function cleanClue(def,topic){
+  let s=(def||'').replace(/^[a-z]+\t/,'').trim();
+  let depth=0,cut=-1;
+  for(let i=0;i<s.length;i++){
+    const ch=s[i];
+    if(ch==='(')depth++;
+    else if(ch===')')depth=Math.max(0,depth-1);
+    else if((ch===';'||ch===',')&&depth===0){cut=i;break;}
+  }
+  if(cut>=0)s=s.slice(0,cut);
+  const open=s.lastIndexOf('(');
+  if(open>=0&&s.indexOf(')',open)===-1)s=s.slice(0,open);   // dangling "(astronomy"
+  s=s.trim().replace(/[\s(,;]+$/,'').trim();
+  return s||`A word related to ${topic}`;
+}
+
 function buildCrossword(words,size=CWS){
   const G=Array.from({length:size},()=>Array(size).fill(null));
   const placed=[];
@@ -379,14 +400,16 @@ function CrosswordPage({toast}){
         const raw=await res.json();
         const words=raw
           .filter(w=>/^[a-z]+$/.test(w.word)&&w.word.length>=4&&w.word.length<=9)
-          .map(w=>({word:w.word.toUpperCase(),clue:(w.defs?.[0]||'').replace(/^[a-z]+\t/,'').replace(/[;,].*/,'').trim()||`A word related to ${tp}`}))
+          .map(w=>({word:w.word.toUpperCase(),clue:cleanClue(w.defs?.[0],tp)}))
           .filter((w,i,a)=>i===a.findIndex(x=>x.word===w.word));
         words.sort((a,b)=>b.word.length-a.word.length);
         wdata={words:words.slice(0,22),topic:tp};
         API.post('/api/puzzles/wordcache',{date:d,...wdata}).catch(()=>{});
       }
       setTopic(wdata.topic);
-      const built=buildCrossword(wdata.words);
+      // Caches (incl. the emag's baked crossword-words.json) were written by the
+      // old parser, so re-clean on the way in rather than only at fetch time.
+      const built=buildCrossword((wdata.words||[]).map(w=>({...w,clue:cleanClue(w.clue,wdata.topic)})));
       if(!built||built.across.length<3){toast('Could not build crossword — will retry with a different source','err');setLoading(false);return;}
       setCw(built);
       /* 2. user state: load from DB */
@@ -462,25 +485,64 @@ function CrosswordPage({toast}){
     if(prev)setSel(prev);
   }
 
+  /* Ctrl+arrow: free single-cell movement across the whole grid, independent
+     of the current word/direction -- steps over black squares instead of
+     stopping at them, and crosses between across/down words. Plain arrows
+     stay word-bound (see inputKey). */
+  function moveCell(r,c,dr,dc){
+    if(!cw)return null;
+    let nr=r+dr,nc=c+dc;
+    while(nr>=0&&nr<CWS&&nc>=0&&nc<CWS&&cw.grid[nr][nc]===null){nr+=dr;nc+=dc;}
+    return(nr>=0&&nr<CWS&&nc>=0&&nc<CWS)?[nr,nc]:null;
+  }
+
+  function typeLetter(ch){
+    if(!sel||!cw||!userG)return;
+    const[r,c]=sel;
+    if(cw.grid[r][c]===null)return;
+    const ng=userG.map(row=>[...row]);ng[r][c]=ch.toUpperCase();setUserG(ng);advance(r,c,dir,ng);
+    /* check win */
+    const allW=[...cw.across,...cw.down];
+    if(allW.every(w=>{const dr=w.dir==='V'?1:0,dc=w.dir==='H'?1:0;for(let i=0;i<w.len;i++)if(ng[w.r+dr*i][w.c+dc*i]!==w.word[i])return false;return true;})){setCompleted(true);toast('Crossword complete! Brilliant! ✓');API.post('/api/reader/puzzle-complete',{type:'crossword',date,difficulty:'',elapsed}).catch(()=>{});}
+  }
+
+  function doBackspace(){
+    if(!sel||!cw||!userG)return;
+    const[r,c]=sel;
+    if(cw.grid[r][c]===null)return;
+    const ng=userG.map(row=>[...row]);
+    if(ng[r][c]){ng[r][c]='';setUserG(ng);}
+    else{retreat(r,c,dir);ng[r][c]='';setUserG(ng);}
+  }
+
+  const ARROW_DELTA={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+
   function inputKey(e){
     if(!sel||!cw||!userG)return;
     const[r,c]=sel;
     if(cw.grid[r][c]===null)return;
-    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setDir('H');if(e.key==='ArrowRight'){const w=wordAt(r,c,'H');if(w)advance(r,c,'H',null);}return;}
-    if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();setDir('V');if(e.key==='ArrowDown'){const w=wordAt(r,c,'V');if(w)advance(r,c,'V',null);}return;}
-    if(e.key==='Tab'){e.preventDefault();const list=dir==='H'?cw.across:cw.down;const cur=wordAt(r,c,dir);if(cur){const idx=list.findIndex(w=>w.num===cur.num);const nxt=list[(idx+1)%list.length];setSel([nxt.r,nxt.c]);}return;}
-    if(/^[a-zA-Z]$/.test(e.key)){
+    if((e.ctrlKey||e.metaKey)&&ARROW_DELTA[e.key]){
       e.preventDefault();
-      const ng=userG.map(row=>[...row]);ng[r][c]=e.key.toUpperCase();setUserG(ng);advance(r,c,dir,ng);
-      /* check win */
-      const allW=[...cw.across,...cw.down];
-      if(allW.every(w=>{const dr=w.dir==='V'?1:0,dc=w.dir==='H'?1:0;for(let i=0;i<w.len;i++)if(ng[w.r+dr*i][w.c+dc*i]!==w.word[i])return false;return true;})){setCompleted(true);toast('Crossword complete! Brilliant! ✓');API.post('/api/reader/puzzle-complete',{type:'crossword',date,difficulty:'',elapsed}).catch(()=>{});}
-    } else if(e.key==='Backspace'||e.key==='Delete'){
-      e.preventDefault();
-      const ng=userG.map(row=>[...row]);
-      if(ng[r][c]){ng[r][c]='';setUserG(ng);}
-      else{retreat(r,c,dir);const[pr,pc]=sel; /* check moved */ng[r][c]='';setUserG(ng);}
+      const[dr,dc]=ARROW_DELTA[e.key];
+      const next=moveCell(r,c,dr,dc);
+      if(next){setSel(next);if(dc!==0)setDir('H');else if(dr!==0)setDir('V');}
+      return;
     }
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      e.preventDefault();
+      if(dir==='H'){if(e.key==='ArrowRight')advance(r,c,'H',null);else retreat(r,c,'H');}
+      else setDir('H');
+      return;
+    }
+    if(e.key==='ArrowUp'||e.key==='ArrowDown'){
+      e.preventDefault();
+      if(dir==='V'){if(e.key==='ArrowDown')advance(r,c,'V',null);else retreat(r,c,'V');}
+      else setDir('V');
+      return;
+    }
+    if(e.key==='Tab'){e.preventDefault();const list=dir==='H'?cw.across:cw.down;const cur=wordAt(r,c,dir);if(cur){const idx=list.findIndex(w=>w.num===cur.num);const nxt=list[(idx+1)%list.length];setSel([nxt.r,nxt.c]);}return;}
+    if(/^[a-zA-Z]$/.test(e.key)){e.preventDefault();typeLetter(e.key);}
+    else if(e.key==='Backspace'||e.key==='Delete'){e.preventDefault();doBackspace();}
   }
 
   const selWord=sel?wordAt(sel[0],sel[1],dir):null;
@@ -512,15 +574,24 @@ function CrosswordPage({toast}){
 
       {!loading&&cw&&userG&&(
         <>
-          {/* hidden input captures keyboard */}
-          <input ref={hidRef} style={{position:'fixed',top:'-999px',left:'-999px',opacity:0,width:1,height:1,pointerEvents:'none'}}
-            onKeyDown={inputKey} readOnly/>
+          {/* hidden input captures physical keyboard */}
+          <input ref={hidRef} style={{position:'fixed',top:'-999px',left:'-999px',opacity:0,width:1,height:1,fontSize:16,pointerEvents:'none'}}
+            onKeyDown={inputKey} readOnly inputMode="text" autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck="false"/>
 
           <div className="cw-layout">
             {/* grid */}
             <div>
+              {/* Current clue, pinned above the grid -- on narrow screens the
+                  clue list sits below the (often tall) grid, out of view, so
+                  without this a phone user has no way to see what they're
+                  filling in without scrolling away from the grid itself. */}
+              <div className="cw-active-clue">
+                {selWord
+                  ? <><span className="cw-clue-n">{selWord.num}{dir==='H'?'A':'D'}</span>{selWord.clue}</>
+                  : <span style={{opacity:.55}}>Select a cell to see its clue</span>}
+              </div>
               <div className="cw-outer">
-                <div className="cw-grid" style={{gridTemplateColumns:`repeat(${CWS},38px)`}}>
+                <div className="cw-grid" style={{gridTemplateColumns:`repeat(${CWS},var(--cw-cell,38px))`}}>
                   {cw.grid.map((row,r)=>row.map((ch,c)=>{
                     const k=`${r},${c}`;
                     const isSel=sel&&sel[0]===r&&sel[1]===c;
@@ -541,13 +612,24 @@ function CrosswordPage({toast}){
                             const hW=wordAt(r,c,'H'),vW=wordAt(r,c,'V');
                             if(hW&&!vW)setDir('H');else if(vW&&!hW)setDir('V');
                           }
-                          setTimeout(()=>hidRef.current?.focus(),0);
+                          hidRef.current?.focus();
                         }}>
                         {!isBlk&&num>0&&<span className="cw-num">{num}</span>}
                         {!isBlk&&val}
                       </div>
                     );
                   }))}
+                </div>
+              </div>
+              {/* on-screen keyboard: works regardless of native mobile keyboard behavior */}
+              <div className="cw-keyboard">
+                {['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'].map((row,i)=>(
+                  <div key={i} className="cw-kb-row">
+                    {row.split('').map(ch=><button key={ch} type="button" onClick={()=>typeLetter(ch)}>{ch}</button>)}
+                  </div>
+                ))}
+                <div className="cw-kb-row">
+                  <button type="button" className="cw-kb-wide" onClick={doBackspace}>⌫ Delete</button>
                 </div>
               </div>
               {/* actions */}
@@ -578,14 +660,14 @@ function CrosswordPage({toast}){
               <h4>Across</h4>
               {cw.across.map(w=>(
                 <div key={w.num} className={`cw-clue${selWord&&selWord.num===w.num&&dir==='H'?' act':''}`}
-                  onClick={()=>{setSel([w.r,w.c]);setDir('H');setTimeout(()=>hidRef.current?.focus(),0);}}>
+                  onClick={()=>{setSel([w.r,w.c]);setDir('H');hidRef.current?.focus();}}>
                   <span className="cw-clue-n">{w.num}</span>{w.clue}
                 </div>
               ))}
               <h4>Down</h4>
               {cw.down.map(w=>(
                 <div key={w.num} className={`cw-clue${selWord&&selWord.num===w.num&&dir==='V'?' act':''}`}
-                  onClick={()=>{setSel([w.r,w.c]);setDir('V');setTimeout(()=>hidRef.current?.focus(),0);}}>
+                  onClick={()=>{setSel([w.r,w.c]);setDir('V');hidRef.current?.focus();}}>
                   <span className="cw-clue-n">{w.num}</span>{w.clue}
                 </div>
               ))}

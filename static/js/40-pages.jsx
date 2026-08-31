@@ -122,7 +122,10 @@ function TimelinePage({setView,go}){
 }
 
 /* Map */
-function MapPage({setView,go}){
+function MapPage({setView,go,currentUser}){
+  /* Auto-tagging rewrites every un-geotagged article's lat/lon, so it is a
+     staff action -- /api/articles/auto-geotag is gated by _require_staff(). */
+  const isStaff = currentUser && currentUser.role!=='reader';
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
   const [fCat,setFCat]=useState('');
@@ -131,6 +134,7 @@ function MapPage({setView,go}){
   const mapInst=useRef(null);
   const artRef=useRef([]);
   const markersRef=useRef({});
+  const roRef=useRef(null);
 
   useEffect(()=>{
     API.get('/api/articles?status=published&geotagged=true&limit=200')
@@ -177,11 +181,28 @@ function MapPage({setView,go}){
         markersRef.current[a.id]=marker;
         bounds.push([a.latitude,a.longitude]);
       });
-      if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30]});
-      else if(bounds.length===1)map.setView(bounds[0],13);
+      // The 80ms timer can fire before the container has its final size, so
+      // Leaflet caches wrong dimensions and paints tiles into a narrow strip.
+      // Re-measure BEFORE fitting, or the fit is computed against the bad size.
+      const fit=()=>{
+        map.invalidateSize(false);
+        if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30]});
+        else if(bounds.length===1)map.setView(bounds[0],13);
+      };
+      fit();
+      requestAnimationFrame(fit);
+      // Keep it correct if the container resizes later (window resize, fonts).
+      if(typeof ResizeObserver!=='undefined'){
+        const ro=new ResizeObserver(()=>map.invalidateSize(false));
+        ro.observe(el);
+        roRef.current=ro;
+      }
       window._mapClick=id=>{const f=artRef.current.find(a=>a.id===id);if(f){go(f);setView('article');}};
     },80);
-    return()=>clearTimeout(t);
+    return()=>{
+      clearTimeout(t);
+      if(roRef.current){try{roRef.current.disconnect();}catch{}roRef.current=null;}
+    };
   },[loading]);
 
   /* Show/hide markers on filter change */
@@ -238,6 +259,9 @@ function MapPage({setView,go}){
     <div className="map-page">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'.5rem'}}>
         <div className="sec-lbl" style={{margin:0}}><span>Map</span> — Geotagged Reporting</div>
+        {isStaff&&<button className="btn-s" onClick={autoGeoTag} disabled={geoTagging} title="Infer Delhi-area locations from article content" style={{fontSize:'.58rem',opacity:geoTagging?.6:1}}>
+          {geoTagging?'Tagging…':'⊕ Auto-tag locations'}
+        </button>}
       </div>
 
       {!loading&&articles.length>0&&(
@@ -365,10 +389,16 @@ function NewsletterPage({setView,go,toast,currentUser}){
               pub_type:'broadsheet',
               description:'This edition as a vintage newspaper broadsheet — full grid, puzzles, plotter-ready. Download the PDF, or read the edition online.',
               _pdf_url:`static/media/broadsheet_${nl.year}_${String(nl.month).padStart(2,'0')}.pdf`,
+              _scroll_url:`static/media/broadsheet_scroll_${nl.year}_${String(nl.month).padStart(2,'0')}.html`,
               _nl:{year:nl.year,month:nl.month}});}}
             title="Download this edition as a vintage broadsheet PDF, or read online">Get this edition ↓</button>
         )}
-              </div>
+        {currentUser&&currentUser.role!=='reader'&&
+          <button className="btn-s" style={nl&&safe(getC(nl).articles).length>0?{}:{marginLeft:'auto'}} onClick={regenerate} disabled={regen}
+            title="Rebuild this edition from current articles">{regen?'Regenerating…':'↻ Regenerate'}</button>}
+      </div>
+
+      {typeof window!=='undefined'&&window.VE_STATIC&&<SubscribeBox toast={toast}/>}
 
       {tab==='current'&&nl&&(
         <>
@@ -685,6 +715,7 @@ function SearchPage({query:initQ,setView,go}){
   const circleRef=useRef(null);
   const sugRef=useRef(null);
   const acTimer=useRef(null);
+  const acDismissed=useRef(false);
 
   useEffect(()=>{
     Promise.all([API.get('/api/authors'),API.get('/api/tags'),API.get('/api/categories')])
@@ -694,12 +725,18 @@ function SearchPage({query:initQ,setView,go}){
   /* Datamuse autocomplete */
   useEffect(()=>{
     clearTimeout(acTimer.current);
+    acDismissed.current=false;   // q really changed -> suggestions welcome again
     if(!q.trim()||q.length<2){setSugg([]);return;}
     acTimer.current=setTimeout(async()=>{
       const r=await fetch(`https://api.datamuse.com/sug?s=${encodeURIComponent(q)}&max=7`).then(r=>r.json()).catch(()=>[]);
+      // Enter/Escape may have dismissed the drop while this was in flight --
+      // without this guard the response re-opened it over the results page.
+      if(acDismissed.current)return;
       setSugg(r.map(x=>x.word));
     },260);
   },[q]);
+
+  const dismissSugg=()=>{acDismissed.current=true;clearTimeout(acTimer.current);setSugg([]);};
 
   /* Run search */
   useEffect(()=>{
@@ -762,7 +799,7 @@ function SearchPage({query:initQ,setView,go}){
       <div className="ac-wrap">
         <div style={{display:'flex',gap:'.38rem'}}>
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search articles, topics, keywords…"
-            onKeyDown={e=>{if(e.key==='Escape')setSugg([]);if(e.key==='Enter')setSugg([]);}}
+            onKeyDown={e=>{if(e.key==='Escape'||e.key==='Enter')dismissSugg();}}
             style={{flex:1}} autoFocus/>
           <div style={{display:'flex',alignItems:'center',gap:'.28rem',flexShrink:0}}>
             <label style={{fontFamily:'var(--fm)',fontSize:'.58rem',letterSpacing:'.06em',textTransform:'uppercase',cursor:'pointer',display:'flex',alignItems:'center',gap:'.28rem',whiteSpace:'nowrap',color:'var(--g500)'}}>
@@ -773,7 +810,7 @@ function SearchPage({query:initQ,setView,go}){
         {sugg.length>0&&(
           <div className="ac-drop" ref={sugRef}>
             {sugg.map((s,i)=>(
-              <div key={i} className="ac-item" onClick={()=>{setQ(s);setSugg([]);}}>
+              <div key={i} className="ac-item" onClick={()=>{setQ(s);dismissSugg();}}>
                 {s}<span className="ac-tag">suggestion</span>
               </div>
             ))}

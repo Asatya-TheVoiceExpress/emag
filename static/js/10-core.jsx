@@ -15,6 +15,9 @@ const API={
 
 /* Constants */
 const LANGS={en:'English',hi:'हिंदी',fr:'Français',es:'Español',ar:'العربية',zh:'中文',de:'Deutsch'};
+/* languages the auto-translate service (MyMemory) actually supports, mapped to its language codes --
+   only these get a "Read in" button; anything missing here is silently excluded rather than shown broken */
+const TRANSLATABLE_LANGS={hi:'hi',fr:'fr',es:'es',ar:'ar',zh:'zh-CN',de:'de'};
 
 const AUTHOR_TYPES=[
   {value:'reporter',        label:'Reporter'},
@@ -47,7 +50,7 @@ const LINK_TYPES={
 const NAV_STATIC=[
   {id:'home',l:'Home'},
   {id:'library',l:'Newsstand'},{id:'puzzles',l:'Puzzles'},{id:'timeline',l:'Timeline'},{id:'map',l:'Map'},
-  {id:'newsletter',l:'Newsletter'},
+  {id:'newsletter',l:'Newsletter'},{id:'letters',l:'Letters'},
   {id:'authors',l:'Authors'},{id:'about',l:'About'},
   
 ];
@@ -114,16 +117,16 @@ const NAV_GROUPS_STATIC=[
   {id:'discover',l:'Discover',items:[
     {id:'timeline',l:'Timeline'},{id:'map',l:'Map'},
     {id:'library',l:'Newsstand'},{id:'puzzles',l:'Puzzles'},{id:'newsletter',l:'Newsletter'},
-      ]},
+    {id:'ebook',l:'Create Ebook'},
+  ]},
   {id:'people',l:'People',items:[
     {id:'authors',l:'Authors'},{id:'about',l:'About'},{id:'submissions',l:'Submissions'},
-    
+    {id:'letters',l:'Letters'},
   ]},
   ];
-function NavGrouped({view,go,theme,cycleTheme,currentUser,onLogin,onLogout,sections}){
+function NavGrouped({view,go,currentUser,sections}){
   const [open,setOpen]=useState(null);
   const ref=useRef(null);
-  const themeIcons={light:'○',sepia:'◑',dark:'●'};
 
   useEffect(()=>{
     const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(null);};
@@ -137,20 +140,24 @@ function NavGrouped({view,go,theme,cycleTheme,currentUser,onLogin,onLogout,secti
     return {id:'sections',l:'Sections',items:sections.map(s=>({id:s.slug,l:s.name}))};
   },[sections]);
 
-  /* Build runtime groups — user section added at right */
+  /* Build runtime groups — user section added at right.
+     Sign in/out and theme/ebook already live in the toolbar above this nav row
+     (rendered unconditionally, not just when the flat bar doesn't fit), so an
+     anonymous user gets no entry here -- only logged-in users get one, for the
+     extra destinations (Editorial Desk / My Profile) the toolbar's user pill
+     can't reach in one click. */
   const userGroup=currentUser
     ?{id:'__user',l:`✦ ${currentUser.username}`,items:[
         ...(currentUser.role!=='reader'?[{id:'admin',l:'Editorial Desk ✦'}]:[]),
-        {id:'profile',l:'My Profile'},
-        {id:'__logout',l:'Sign Out →',action:onLogout},
+        
       ]}
-    :{id:'__login',l:'⊕ Sign In',action:onLogin};
+    :null;
 
   const baseGroups=NAV_GROUPS_STATIC.reduce((acc,g)=>{
     if(g.id==='home') return [...acc,g,...(sectionsGroup?[sectionsGroup]:[])];
     return [...acc,g];
   },[]);
-  const allGroups=[...baseGroups,userGroup];
+  const allGroups=userGroup?[...baseGroups,userGroup]:baseGroups;
 
   const renderGroup=g=>{
     /* Simple action item (sign in) */
@@ -195,20 +202,6 @@ function NavGrouped({view,go,theme,cycleTheme,currentUser,onLogin,onLogout,secti
   return(
     <nav className="nav-grouped" ref={ref} style={{justifyContent:'flex-start'}}>
       {allGroups.map(renderGroup)}
-      {/* Ebook + Theme toggles at far right */}
-      <button className="ng-btn" style={{marginLeft:currentUser?'':' auto',borderLeft:'var(--rt)',borderRight:'none',color:'var(--g500)',padding:'.52rem .6rem'}}
-        onClick={()=>go('ebook')} title="Create Ebook">
-        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="1" width="9" height="12" rx="1"/>
-          <line x1="5" y1="4.5" x2="9" y2="4.5"/>
-          <line x1="5" y1="7" x2="9" y2="7"/>
-          <line x1="5" y1="9.5" x2="7.5" y2="9.5"/>
-        </svg>
-      </button>
-      <button className="ng-btn" style={{borderLeft:'var(--rt)',borderRight:'none',color:'var(--g500)',fontSize:'.72rem'}}
-        onClick={cycleTheme} title={`Theme: ${theme}`}>
-        {themeIcons[theme]||'○'}
-      </button>
     </nav>
   );
 }
@@ -250,7 +243,6 @@ function LoginModal({onLogin,onClose}){
           <FormField label="Username"><input value={form.username} onChange={e=>setF('username',e.target.value)} autoFocus onKeyDown={e=>e.key==='Enter'&&submit()}/></FormField>
           <FormField label="Password"><input type="password" value={form.password} onChange={e=>setF('password',e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/></FormField>
           {tab==='register'&&<FormField label="Email (optional)"><input type="email" value={form.email} onChange={e=>setF('email',e.target.value)} placeholder="your@email.com"/></FormField>}
-          {tab==='login'&&<div style={{fontFamily:'var(--fm)',fontSize:'.59rem',color:'var(--g400)',marginTop:'.32rem'}}>Staff: tve · Author: mouli</div>}
           {tab==='register'&&<div style={{fontFamily:'var(--fm)',fontSize:'.59rem',color:'var(--g400)',marginTop:'.32rem'}}>Create a reader account to track reading history and puzzle scores.</div>}
         </div>
         <div className="login-foot">
@@ -263,7 +255,7 @@ function LoginModal({onLogin,onClose}){
 }
 
 /* Masthead */
-function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,currentUser,onLogin,onLogout,sections}){
+function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycleTheme,currentUser,onLogin,onLogout,sections}){
   const [mob,setMob]=useState(false);
   const [showSearch,setShowSearch]=useState(false);
   /* true = flat bar fits; false = use grouped dropdowns; start optimistic */
@@ -283,7 +275,11 @@ function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,curre
       ...safe(sections).map(s=>({id:s.slug,l:s.name})),
       {id:'columns',l:'Columns'},{id:'library',l:'Newsstand'},{id:'puzzles',l:'Puzzles'},
       {id:'timeline',l:'Timeline'},{id:'map',l:'Map'},
-      {id:'newsletter',l:'Newsletter'},
+      {id:'newsletter',l:'Newsletter'},{id:'letters',l:'Letters'},
+      // Create Ebook used to exist ONLY as an icon in the masthead toolbar.
+      // The mobile drawer renders this list, so on a phone -- where a title=
+      // tooltip can never fire -- there was no way to discover it by name.
+      {id:'ebook',l:'Create Ebook'},
       {id:'authors',l:'Authors'},{id:'about',l:'About'},
     ];
     // newspaper product: the reader paper without the standalone newsstand tab
@@ -324,11 +320,13 @@ function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,curre
   if(readMode){
     return(
       <header id="masthead" style={{borderBottom:'var(--rt)'}}>
-        <div className="mh-top" style={{padding:'.4rem 2rem'}}>
-          <span style={{fontFamily:'var(--fh)',fontWeight:900,fontSize:'1rem',textTransform:'uppercase',cursor:'pointer'}} onClick={()=>setView('home')}>Voice Express</span>
-          <span style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:'var(--g500)',letterSpacing:'.2em',textTransform:'uppercase'}}>Read Mode — Truth Takes Time</span>
-          <button className="btn-s" style={{fontSize:'.62rem'}} onClick={cycleTheme} title="Cycle theme">{themeIcons[theme]||'○'}</button>
-          <button className="btn-s" title="Create Ebook" onClick={()=>setView('ebook')} style={{fontSize:'.62rem'}}>⊞</button>
+        <div className="mh-top read-mode-bar" style={{padding:'.4rem 2rem'}}>
+          <button className="art-back" onClick={()=>setReadMode(false)} title="Exit reading view (Esc)">‹ Back</button>
+          <span style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:'var(--g500)',letterSpacing:'.2em',textTransform:'uppercase'}}>Read Mode</span>
+          <div style={{display:'flex',gap:'.4rem'}}>
+            <button className="btn-s" style={{fontSize:'.62rem'}} onClick={cycleTheme} title="Cycle theme">{themeIcons[theme]||'○'}</button>
+            <button className="btn-s" aria-label="Create Ebook" title="Create Ebook" onClick={()=>setView('ebook')} style={{fontSize:'.62rem'}}>⊞</button>
+          </div>
         </div>
       </header>
     );
@@ -354,7 +352,7 @@ function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,curre
         {/* Row 1: logo left | masthead brand center | date right */}
         <div className="mh-top">
           <div className="mh-logo-side">
-            <img className="mh-logo-img" src="/static/tve_logo.png" alt="TVE" onError={e=>e.target.style.display='none'}/>
+            <img className="mh-logo-img" src="static/tve_logo.png" alt="TVE" onError={e=>e.target.style.display='none'}/>
           </div>
           <div className="mh-brand">
             <h1 onClick={()=>setView('home')}>The Voice Express</h1>
@@ -382,18 +380,18 @@ function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,curre
                     if(e.key==='Enter'&&search.trim()){setView('search');setShowSearch(false);}
                     if(e.key==='Escape'){setShowSearch(false);setSearch('');}
                   }}/>
-              :<button className="btn-icon" style={{fontSize:'.75rem'}} title="Search (press /)" onClick={()=>{setShowSearch(true);setTimeout(()=>inputRef.current?.focus(),50);}}>⌕</button>}
+              :<button className="btn-icon" style={{fontSize:'.75rem'}} aria-label="Search" title="Search (press /)" onClick={()=>{setShowSearch(true);setTimeout(()=>inputRef.current?.focus(),50);}}>⌕</button>}
           </div>
           <div className="mh-toolbar-right">
-            <button className="btn-icon" title="Newsstand — published issues" onClick={()=>setView('library')}
+            <button className="btn-icon" aria-label="Newsstand" title="Newsstand — published issues" onClick={()=>setView('library')}
               style={{fontSize:'.72rem',lineHeight:1,opacity:view==='library'?1:.6}}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="3.5" width="8.5" height="10" rx="1"/><path d="M10.5 5.5H14V13a1 1 0 0 1-1 1H4"/>
                 <line x1="4" y1="6.2" x2="8.5" y2="6.2"/><line x1="4" y1="8.5" x2="8.5" y2="8.5"/><line x1="4" y1="10.8" x2="7" y2="10.8"/>
               </svg>
             </button>
-            <button className="btn-icon" title={`Theme: ${theme}`} onClick={cycleTheme} style={{fontSize:'.72rem'}}>{themeIcons[theme]||'○'}</button>
-            <button className="btn-icon" title="Create Ebook" onClick={()=>setView('ebook')}
+            <button className="btn-icon" aria-label={`Theme: ${theme}`} title={`Theme: ${theme}`} onClick={cycleTheme} style={{fontSize:'.72rem'}}>{themeIcons[theme]||'○'}</button>
+            <button className="btn-icon" aria-label="Create Ebook" title="Create Ebook" onClick={()=>setView('ebook')}
               style={{fontSize:'.78rem',lineHeight:1,opacity:view==='ebook'?1:.55}}>
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="1" width="9" height="12" rx="1"/>
@@ -404,8 +402,10 @@ function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,curre
             </button>
             {currentUser
               ?<><span className="user-pill" onClick={()=>setView(currentUser.role==='reader'?'profile':'admin')} title={currentUser.role}>✦ {currentUser.username}</span>
-                <button className="btn-icon" title="Sign out" onClick={onLogout} style={{fontSize:'.68rem'}}>↩</button></>
-              :<button className="btn-icon" title="Sign in" onClick={onLogin} style={{fontSize:'.68rem'}}>⊕</button>}
+                <button className="btn-icon" aria-label="Sign out" title="Sign out" onClick={onLogout} style={{fontSize:'.68rem'}}>↩</button></>
+              :(typeof window!=='undefined'&&window.VE_STATIC
+                ?null   /* no server on the static mirror -- sign-in is a dead end there */
+                :<button className="btn-icon" aria-label="Sign in" title="Sign in" onClick={onLogin} style={{fontSize:'.68rem'}}>⊕</button>)}
             <div className="mob-btn" onClick={()=>setMob(true)} role="button" aria-label="Open menu"><span/><span/><span/></div>
           </div>
         </div>
@@ -414,7 +414,7 @@ function Masthead({view,setView,search,setSearch,readMode,theme,cycleTheme,curre
           ?<nav className="nav-bar" role="navigation">
               {navItems.map(n=><div key={n.id} className={`nav-item${view===n.id?' active':''}`} onClick={()=>go(n.id)}>{n.l}</div>)}
             </nav>
-          :<NavGrouped view={view} go={go} theme={theme} cycleTheme={cycleTheme} currentUser={currentUser} onLogin={onLogin} onLogout={onLogout} sections={sections}/>
+          :<NavGrouped view={view} go={go} currentUser={currentUser} sections={sections}/>
         }
       </header>
       {mob&&(

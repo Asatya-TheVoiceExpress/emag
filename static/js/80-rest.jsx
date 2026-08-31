@@ -507,6 +507,118 @@ function AdminComments({toast}){
   );
 }
 
+/* ── Sheet Mirrors ───────────────────────────────────────────── */
+/* Read-only views onto the tables site_data_get.py refreshes wholesale from
+   the Google Sheet (see /api/admin/* in app.py). Nothing here writes back --
+   these are archival/visibility mirrors, not editable content. Newsstand
+   Accounts is NOT the same login system as this site's Users -- it's just a
+   read-only view of the Sheet's own passwordless account list. */
+function AdminSheetMirrors({toast}){
+  const TABS=[
+    ['subscribers','Subscribers','/api/admin/subscribers'],
+    ['messages','Messages','/api/admin/site-messages'],
+    ['activity','Activity','/api/admin/activity'],
+    ['accounts','Newsstand Accounts','/api/admin/newsstand-accounts'],
+    ['annotations','Annotations','/api/admin/sheet-annotations'],
+  ];
+  const [sub,setSub]=useState('subscribers');
+  const [rows,setRows]=useState([]);
+  const [loading,setLoading]=useState(true);
+
+  const load=key=>{
+    const t=TABS.find(x=>x[0]===(key||sub));
+    setLoading(true);
+    API.get(t[2]).then(d=>{setRows(safe(d));setLoading(false);}).catch(()=>{setRows([]);setLoading(false);toast('Failed to load','err');});
+  };
+  useEffect(()=>{load(sub);},[sub]);
+
+  return(
+    <div>
+      <div className="sec-lbl"><span>Sheet Data — Newsstand / static-build Google Sheet</span></div>
+      <div style={{display:'flex',gap:'.32rem',marginBottom:'.7rem',flexWrap:'wrap'}}>
+        {TABS.map(([k,l])=>(
+          <button key={k} className={`btn-s${sub===k?' on':''}`} onClick={()=>setSub(k)}>{l}</button>
+        ))}
+        <button className="btn-s" style={{marginLeft:'auto'}} onClick={()=>load()}>↻ Refresh</button>
+      </div>
+      <div style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:'var(--g500)',marginBottom:'1.35rem'}}>
+        Read-only. Run <code>python site_data_get.py</code> to pull fresh data out of the Sheet into these tables.
+      </div>
+      {loading&&<div className="loading">Loading</div>}
+      {!loading&&!rows.length&&<div className="empty"><div className="empty-title">Nothing here yet</div></div>}
+
+      {!loading&&sub==='subscribers'&&rows.length>0&&(
+        <table className="art-tbl">
+          <thead><tr><th>Email</th><th>Subscribed</th><th>IP</th></tr></thead>
+          <tbody>{rows.map(r=>(
+            <tr key={r.id}>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.75rem'}}>{r.email}</td>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.65rem'}}>{fmtDate(r.subscribed_at)}</td>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.65rem',color:'var(--g500)'}}>{r.ip_address||'—'}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+
+      {!loading&&sub==='messages'&&rows.map(r=>(
+        <div key={r.id} style={{padding:'.82rem 1rem',border:'var(--rt)',marginBottom:'2px',background:'var(--paper)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'.52rem',flexWrap:'wrap',marginBottom:'.32rem'}}>
+            <span style={{fontFamily:'var(--fh)',fontWeight:700,fontSize:'.92rem'}}>{r.from_name||'Anonymous'}</span>
+            <span style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:'var(--g500)'}}>{fmtDate(r.created_at)}</span>
+            {r.ip_address&&<span style={{fontFamily:'var(--fm)',fontSize:'.56rem',color:'var(--g400)',background:'var(--g100)',padding:'.06rem .35rem'}}>IP: {r.ip_address}</span>}
+          </div>
+          {r.about&&<div style={{fontFamily:'var(--fm)',fontSize:'.6rem',color:'var(--g600)',marginBottom:'.28rem'}}>About: <em>{r.about}</em></div>}
+          <div style={{fontFamily:'var(--fb)',fontSize:'.9rem',lineHeight:1.55,color:'var(--g700)',whiteSpace:'pre-wrap'}}>{r.body}</div>
+        </div>
+      ))}
+
+      {!loading&&sub==='activity'&&rows.length>0&&(
+        <table className="art-tbl">
+          <thead><tr><th>Time</th><th>Kind</th><th>Title / Ref</th><th>Amount</th><th>Via</th><th>User</th><th>IP</th></tr></thead>
+          <tbody>{rows.map(r=>(
+            <tr key={r.id}>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.62rem',whiteSpace:'nowrap'}}>{fmtDate(r.occurred_at)}</td>
+              <td><span className="s-badge">{r.kind}</span></td>
+              <td style={{fontSize:'.8rem',maxWidth:220,wordBreak:'break-word'}}>{r.title||r.ref||'—'}</td>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.68rem'}}>{r.amount?`${r.amount} ${r.currency||''}`:'—'}</td>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.65rem'}}>{r.via||'—'}</td>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.65rem'}}>{r.username||'—'}</td>
+              <td style={{fontFamily:'var(--fm)',fontSize:'.62rem',color:'var(--g500)'}}>{r.ip_address||'—'}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+
+      {!loading&&sub==='accounts'&&rows.length>0&&(
+        <table className="art-tbl">
+          <thead><tr><th>Username</th><th>Library</th><th>Hearts</th><th>Created</th></tr></thead>
+          <tbody>{rows.map(r=>{
+            let libCount=0; try{libCount=(JSON.parse(r.library||'[]')||[]).length;}catch(e){}
+            return (
+              <tr key={r.username}>
+                <td style={{fontFamily:'var(--fh)',fontWeight:600}}>{r.username}</td>
+                <td style={{fontFamily:'var(--fm)',fontSize:'.68rem'}}>{libCount} saved</td>
+                <td style={{fontFamily:'var(--fm)',fontSize:'.68rem'}}>{r.hearts||0}</td>
+                <td style={{fontFamily:'var(--fm)',fontSize:'.65rem'}}>{fmtDate(r.created_at)}</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      )}
+
+      {!loading&&sub==='annotations'&&rows.map(r=>(
+        <div key={r.id} style={{padding:'.82rem 1rem',border:'var(--rt)',marginBottom:'2px',background:'var(--paper)'}}>
+          <div style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:'var(--g500)',marginBottom:'.32rem'}}>
+            Article #{r.article_id||'—'} · {fmtDate(r.created_at)}
+          </div>
+          {r.selected_text&&<div style={{fontFamily:'var(--fb)',fontSize:'.82rem',fontStyle:'italic',color:'var(--g600)',borderLeft:'3px solid var(--g300)',paddingLeft:'.6rem',marginBottom:'.32rem'}}>“{r.selected_text}”</div>}
+          <div style={{fontFamily:'var(--fb)',fontSize:'.9rem',lineHeight:1.55}}>{r.note}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── Ebook Builder ───────────────────────────────────────────── */
 function EbookPage({toast}){
   const [articles,setArticles]=useState([]);
@@ -693,6 +805,173 @@ function EbookPage({toast}){
   );
 }
 
+/* ── Public Ebook Request (static build) ─────────────────────── */
+/* emag has no server to generate an ePub on demand, so this page collects
+   the same picks EbookPage would (articles, title, curator, description)
+   plus optional requester name/email, and sends the request to the Sheet
+   (ebook_request_add) instead of generating anything itself. site_data_get.py
+   picks up new requests, builds the actual ePub with the same build_epub()/
+   _save_to_library() code path app.py's live /api/ebook/generate uses, and
+   drops it straight into the publications table -- so it shows up in the
+   Newsstand on the next ve-push.py run, same as one generated live. Dead
+   code on the live server (case 'ebook' there still routes to EbookPage). */
+function PublicEbookRequestPage({toast}){
+  const [articles,setArticles]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [search,setSearch]=useState('');
+  const [selected,setSelected]=useState([]);
+  const [title,setTitle]=useState('My Voice Express Collection');
+  const [creator,setCreator]=useState('');
+  const [description,setDescription]=useState('');
+  const [name,setName]=useState('');
+  const [email,setEmail]=useState('');
+  const [sending,setSending]=useState(false);
+  const [sent,setSent]=useState(false);
+
+  useEffect(()=>{
+    API.get('/api/articles?status=published&limit=200')
+      .then(data=>{ setArticles(Array.isArray(data)?data:(data.articles||[])); setLoading(false); })
+      .catch(()=>setLoading(false));
+  },[]);
+
+  const inSel=id=>selected.some(a=>a.id===id);
+  const toggle=art=>{
+    if(inSel(art.id)) setSelected(s=>s.filter(a=>a.id!==art.id));
+    else if(selected.length<50) setSelected(s=>[...s,art]);
+    else toast('Max 50 articles per request','err');
+  };
+  const remove=id=>setSelected(s=>s.filter(a=>a.id!==id));
+  const moveUp=idx=>{ if(idx===0)return; setSelected(s=>{const n=[...s];[n[idx-1],n[idx]]=[n[idx],n[idx-1]];return n;}); };
+  const moveDown=idx=>{ setSelected(s=>{if(idx>=s.length-1)return s;const n=[...s];[n[idx],n[idx+1]]=[n[idx+1],n[idx]];return n;}); };
+
+  const submit=async()=>{
+    if(!selected.length){toast('Select at least one article','err');return;}
+    if(!title.trim()){toast('Title required','err');return;}
+    setSending(true);
+    const r=await API.post('/api/ebook-requests',{
+      name:name.trim(), email:email.trim(),
+      title:title.trim(), creator:creator.trim(), description:description.trim(),
+      article_ids:selected.map(a=>a.id).join(','),
+    }).catch(()=>({error:'Failed'}));
+    setSending(false);
+    if(r&&r.error){toast(r.error,'err');return;}
+    setSent(true);
+    toast('Request submitted!');
+  };
+
+  const filtered=articles.filter(a=>
+    !search||a.title.toLowerCase().includes(search.toLowerCase())
+    ||(a.author_name||'').toLowerCase().includes(search.toLowerCase())
+  );
+
+  if(sent){
+    return(
+      <div className="ebook-page">
+        <h1>Request Submitted</h1>
+        <div style={{padding:'1.2rem',border:'var(--rt)',background:'var(--g100)',fontFamily:'var(--fb)',fontSize:'.95rem',lineHeight:1.6}}>
+          Thanks — your collection <strong>“{title}”</strong> ({selected.length} article{selected.length!==1?'s':''}) has been submitted.
+          This static build can't generate the file instantly: once the next batch of requests is pulled from the Sheet, your ePub will
+          be built and will appear in the <strong>Newsstand</strong>. Check back soon.
+        </div>
+        <button className="btn-o" style={{marginTop:'1rem'}} onClick={()=>{setSent(false);setSelected([]);setTitle('My Voice Express Collection');setCreator('');setDescription('');}}>
+          ← Request another
+        </button>
+      </div>
+    );
+  }
+
+  return(
+    <div className="ebook-page">
+      <h1>Request an Ebook</h1>
+      <p>Select articles and arrange them into a collection. This static build can't generate the file instantly — your request is
+        queued for the next batch, and the finished <strong>EPUB</strong> appears in the Newsstand once it's been built.</p>
+      <div className="ebook-layout">
+
+        <div className="ebook-browser">
+          <div className="ebook-browser-hd">
+            <strong>All Published Articles</strong>
+            <span style={{fontFamily:'var(--fm)',fontSize:'.62rem',color:'var(--g500)'}}>{filtered.length} shown</span>
+          </div>
+          <div className="ebook-search">
+            <input type="text" placeholder="Filter by title or author…" value={search}
+              onChange={e=>setSearch(e.target.value)}/>
+          </div>
+          <div className="ebook-art-list">
+            {loading&&<div style={{padding:'2rem',textAlign:'center',color:'var(--g400)'}}>Loading…</div>}
+            {!loading&&filtered.length===0&&<div style={{padding:'2rem',textAlign:'center',color:'var(--g400)'}}>No articles found.</div>}
+            {filtered.map(art=>(
+              <div key={art.id} className={`ebook-art-row${inSel(art.id)?' in-sel':''}`}
+                onClick={()=>toggle(art)}>
+                <span className="ebook-check">{inSel(art.id)?'☑':'☐'}</span>
+                <div>
+                  <div className="ebook-art-title">{art.title}</div>
+                  <div className="ebook-art-meta">
+                    {[art.author_name||art.byline,art.category_name,(art.published_at||'').slice(0,10)].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ebook-config">
+          <div className="ebook-sel-hd">
+            <strong>Selected ({selected.length})</strong>
+            {selected.length>0&&
+              <button className="btn-sm" onClick={()=>setSelected([])}>Clear all</button>}
+          </div>
+
+          <div className="ebook-sel-list">
+            {selected.length===0&&
+              <div className="ebook-empty-sel">No articles selected yet.<br/>Click articles on the left to add them.</div>}
+            {selected.map((art,idx)=>(
+              <div key={art.id} className="ebook-sel-item">
+                <span className="ebook-sel-num">{idx+1}</span>
+                <span className="ebook-sel-title" title={art.title}>{art.title}</span>
+                <div className="ebook-sel-btns">
+                  <button onClick={()=>moveUp(idx)} disabled={idx===0} title="Move up">↑</button>
+                  <button onClick={()=>moveDown(idx)} disabled={idx===selected.length-1} title="Move down">↓</button>
+                  <button onClick={()=>remove(art.id)} title="Remove">×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="ebook-meta-form">
+            <h3>Ebook Details</h3>
+            <label>Title
+              <input type="text" value={title} onChange={e=>setTitle(e.target.value)}
+                placeholder="My Voice Express Collection"/>
+            </label>
+            <label>Author / Curator name
+              <input type="text" value={creator} onChange={e=>setCreator(e.target.value)}
+                placeholder="Your name (optional)"/>
+            </label>
+            <label>Description
+              <textarea rows={3} value={description} onChange={e=>setDescription(e.target.value)}
+                placeholder="A brief description of this collection…"/>
+            </label>
+            <label>Your Name (optional)
+              <input type="text" value={name} onChange={e=>setName(e.target.value)}
+                placeholder="Shown to the editors only"/>
+            </label>
+            <label>Your Email (optional)
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+                placeholder="If you'd like to be notified"/>
+            </label>
+            <button className="ebook-generate-btn" onClick={submit}
+              disabled={sending||selected.length===0}
+              style={{fontSize:'.85rem'}}>
+              {sending?'Submitting…':('Submit Request'+(selected.length?` (${selected.length})`:''))}
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 /* ── Publications Library: Newsstand ────────────────────────── */
 
 const PUB_TYPE_CONFIG = {
@@ -741,6 +1020,21 @@ function LibraryPage({toast, currentUser, setView}){
     }catch(e){toast('Update failed','err');}
   };
 
+  // Featured is a keep-forever mark, not decoration. Reader-built ebooks are
+  // deleted 30 days after they are made (ve_prune.py) and this is the only
+  // thing that exempts one, so it has to be reachable from the same board an
+  // editor is already looking at the shelf in.
+  const toggleFeatured=async(pub)=>{
+    const next=pub.is_featured?0:1;
+    try{
+      await API.put(`/api/publications/${pub.id}`,{is_featured:next});
+      setPubs(ps=>ps.map(p=>p.id===pub.id?{...p,is_featured:next}:p));
+      toast(next
+        ? (pub.pub_type==='epub'?'Featured — this ebook will be kept':'Featured')
+        : (pub.pub_type==='epub'?'No longer featured — prunable after 30 days':'No longer featured'));
+    }catch(e){toast('Update failed','err');}
+  };
+
   const deletePub=async(pub)=>{
     if(!confirm(`Delete "${pub.title}"? This cannot be undone.`))return;
     try{
@@ -755,6 +1049,7 @@ function LibraryPage({toast, currentUser, setView}){
     if(pub.pub_type==='newsletter'){
       setSelected({...pub, _nl_id:true, _nl:{year:pub._year,month:pub._month},
         _pdf_url:`static/media/broadsheet_${pub._year}_${String(pub._month).padStart(2,'0')}.pdf`,
+        _scroll_url:`static/media/broadsheet_scroll_${pub._year}_${String(pub._month).padStart(2,'0')}.html`,
         description:'Read this edition online, or take it as a vintage newspaper broadsheet — PDF, plotter-ready.'});
       setPayAmount(0);return;
     }
@@ -784,7 +1079,12 @@ function LibraryPage({toast, currentUser, setView}){
   // newsstand = the monthly newsletters (+ deliberately uploaded PDFs). Auto-generated
   // gazettes / broadsheets / booklets are not shelved here — they're cached + reachable
   // from each article / edition / column.
-  const shelfPubs=safe(pubs).filter(p=>p.pub_type==='pdf');
+  // Readers see only deliberately-shelved PDFs here. EDITORS also see ebooks,
+  // because this is where featuring happens and a reader-built ebook is on a
+  // 30-day clock until someone marks it kept (ve_prune.py) — invisible here,
+  // it could only ever be rescued from Desk Editor or dtp. The reader-facing
+  // shelf is unchanged: epubs are admitted only in the editorial view.
+  const shelfPubs=safe(pubs).filter(p=>p.pub_type==='pdf'||(isAdmin&&p.pub_type==='epub'));
   const allCards=[...shelfPubs,...nlCards].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
   const types=[...new Set(allCards.map(p=>p.pub_type))];
   const filtered=typeFilter==='all'?allCards:allCards.filter(p=>p.pub_type===typeFilter);
@@ -850,6 +1150,7 @@ function LibraryPage({toast, currentUser, setView}){
             isAdmin={isAdmin}
             onGet={()=>openPub(pub)}
             onToggleVisible={()=>toggleVisible(pub)}
+            onToggleFeatured={()=>toggleFeatured(pub)}
             onDelete={()=>deletePub(pub)}
           />
         ))}
@@ -908,7 +1209,7 @@ function UploadPdfModal({onClose,onUpload,toast}){
   );
 }
 
-function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onDelete}){
+function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured, onDelete}){
   const tc=PUB_TYPE_CONFIG[pub.pub_type]||{label:pub.pub_type,icon:'◆',color:'#1a1a1a',accent:'#f5f5f0'};
   const date=(pub.created_at||'').slice(0,10);
   const isHidden=isAdmin&&!pub.is_visible;
@@ -936,6 +1237,21 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onDelete}){
           <img src={pub.cover_image} alt={pub.title} onError={e=>e.target.style.display='none'}/>
         )}
         <div className="pub-badge">{tc.label}{isHidden&&' · Hidden'}</div>
+        {/* A reader-built ebook that is NOT featured is on a 30-day clock, and
+            an editor scanning the shelf needs to see which those are without
+            opening anything. Only shown in the editorial view. */}
+        {isAdmin&&pub.is_featured&&(
+          <div style={{position:'absolute',top:'.4rem',left:'.4rem',fontSize:'.8rem',
+            color:'#f5c451',textShadow:'0 1px 3px rgba(0,0,0,.6)'}} title="Featured — kept permanently">★</div>
+        )}
+        {isAdmin&&!pub.is_featured&&pub.pub_type==='epub'&&(
+          <div style={{position:'absolute',top:'.4rem',left:'.4rem',fontFamily:'var(--fm)',
+            fontSize:'.42rem',letterSpacing:'.08em',textTransform:'uppercase',
+            background:'rgba(0,0,0,.55)',color:'rgba(255,255,255,.75)',padding:'.12rem .3rem'}}
+            title="Reader-built ebooks are deleted 30 days after they are made unless featured">
+            temporary
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -954,6 +1270,14 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onDelete}){
             <button className="btn-s" style={{fontSize:'.48rem'}} onClick={onToggleVisible}>
               {pub.is_visible?'Hide':'Show'}
             </button>
+            <button className="btn-s"
+              style={{fontSize:'.48rem',color:pub.is_featured?'#9a7b1f':undefined}}
+              title={pub.pub_type==='epub'
+                ? 'Featured ebooks are kept permanently; the rest are pruned after 30 days'
+                : 'Featured publications are promoted on the shelf and never pruned'}
+              onClick={onToggleFeatured}>
+              {pub.is_featured?'★ Featured':'☆ Feature'}
+            </button>
             <button className="btn-s" style={{fontSize:'.48rem',color:'#a33'}} onClick={onDelete}>
               Delete
             </button>
@@ -967,14 +1291,19 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onDelete}){
 function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
   const tc=PUB_TYPE_CONFIG[pub.pub_type]||{label:pub.pub_type,icon:'◆',color:'#1a1a1a'};
   const priceMax=pub.price_max||500;
-  const upiId='mitali120501-1@okhdfcbank';
   const kofiUrl='';   // Ko-fi off for now
-  const upiDeepLink=`upi://pay?pa=${encodeURIComponent(upiId)}&pn=The%20Voice%20Express&am=${amount}&cu=INR&tn=${encodeURIComponent('Voice Express — '+pub.title)}`;
+  // Razorpay replaced the UPI deep link. `upi://` only resolves on a phone
+  // with a UPI app installed -- on a desktop browser, where most of this
+  // site's reading happens, the old button simply did nothing. One https
+  // link takes cards, UPI and net banking, and works everywhere.
+  // razorpay.me/@handle carries the amount as a path segment, in rupees.
+  const razorpayBase='https://razorpay.me/@mitaliaayatmahnoorsharma';
+  const payLink=amount>0?`${razorpayBase}/${Math.round(amount)}`:razorpayBase;
   const presets=[0,25,50,100,200].filter(p=>p<=priceMax);
   const isFree=amount===0;
 
   const handleDownload=()=>{
-    window.open(pub.download_url||`/api/publications/${pub.id}/download`,'_blank');
+    window.open(String(pub.download_url||'').replace(/^\//,'')||`/api/publications/${pub.id}/download`,'_blank');
     toast(isFree
       ?'Downloading — if you enjoy the work, consider supporting us!'
       :`₹${amount} selected — thank you! Downloading now.`);
@@ -1042,10 +1371,10 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
           {/* Payment links (shown when amount > 0) */}
           {!isFree&&(
             <div className="pay-btns">
-              <a href={upiDeepLink}
+              <a href={payLink} target="_blank" rel="noopener noreferrer"
                 className="btn-p"
                 style={{textAlign:'center',textDecoration:'none',display:'block',fontSize:'.66rem'}}>
-                Pay ₹{amount} via UPI
+                Pay ₹{amount}
               </a>
               {kofiUrl&&<a href={kofiUrl} target="_blank" rel="noopener noreferrer"
                 className="btn-o"
@@ -1068,6 +1397,11 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
                 onClick={()=>{if(pub._nl&&setView){window.__nlGoto=pub._nl;setView('newsletter');}else if(setView)setView('newsletter');onClose();}}>
                 → Read this edition online
               </button>
+              {pub._scroll_url&&<button className="btn-o" style={{width:'100%',fontSize:'.7rem'}}
+                onClick={()=>{window.open(pub._scroll_url);onClose();}}
+                title="Open this edition as one continuous scrolling vintage-newspaper page">
+                📰 Read as a Vintage Paper
+              </button>}
             </div>
           ):pub._nl_id?(
             <button className="btn-p" style={{width:'100%',fontSize:'.7rem'}}
@@ -1090,7 +1424,7 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
 
           <p style={{fontFamily:'var(--fm)',fontSize:'.5rem',color:'var(--g300)',textAlign:'center',
             marginTop:'.3rem',letterSpacing:'.06em'}}>
-            UPI: {upiId}
+            Cards · UPI · net banking, via Razorpay
           </p>
         </div>
       </div>
@@ -1143,6 +1477,75 @@ function SubmissionsPage({setView}){
 }
 
 /* ── Letters Page ────────────────────────────────────────────── */
+/* Public letters-to-the-editor -- used in the static build (window.VE_STATIC)
+   in place of the private mailbox below. Submissions go to the Apps Script
+   Sheet (jsonp letters_add, via 15-static-api.jsx); the list shown here is
+   whatever site_data_get.py last froze into data/letters.json -- new
+   submissions appear after its next run, not immediately. */
+function PublicLettersPage({toast}){
+  const [letters,setLetters]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [form,setForm]=useState({guest_name:'',subject:'',content:''});
+  const [composing,setComposing]=useState(false);
+  const [sending,setSending]=useState(false);
+  const [sent,setSent]=useState(false);
+
+  useEffect(()=>{
+    API.get('/api/letters').then(d=>setLetters(safe(d))).catch(()=>{}).finally(()=>setLoading(false));
+  },[]);
+
+  const submit=async()=>{
+    if(!form.subject.trim()||!form.content.trim()){toast('Subject and message required','err');return;}
+    setSending(true);
+    const r=await API.post('/api/letters',form).catch(()=>({error:'Failed'}));
+    setSending(false);
+    if(r.error){toast(r.error,'err');return;}
+    setSent(true);setComposing(false);setForm({guest_name:'',subject:'',content:''});
+    toast('Letter sent — thank you!');
+  };
+
+  return(
+    <div className="letters-page">
+      <div className="sec-lbl"><span>Letters to the Editor</span></div>
+      {!composing&&!sent&&<button className="btn-p" style={{marginBottom:'1.35rem'}} onClick={()=>setComposing(true)}>+ Write a Letter</button>}
+      {composing&&(
+        <div style={{padding:'1.2rem',border:'var(--rk)',marginBottom:'1.35rem',background:'var(--g100)'}}>
+          <div className="form-lbl" style={{marginBottom:'.72rem',fontSize:'.65rem'}}>Write to the Editor</div>
+          <FormField label="Your Name (optional)"><input value={form.guest_name} onChange={e=>setForm(p=>({...p,guest_name:e.target.value}))} placeholder="Displayed publicly if your letter is featured"/></FormField>
+          <FormField label="Subject"><input value={form.subject} onChange={e=>setForm(p=>({...p,subject:e.target.value}))} placeholder="What is this about?"/></FormField>
+          <FormField label="Message"><textarea value={form.content} onChange={e=>setForm(p=>({...p,content:e.target.value}))} placeholder="Your message…" style={{minHeight:120}}/></FormField>
+          <div style={{display:'flex',gap:'.5rem'}}>
+            <button className="btn-p" onClick={submit} disabled={sending}>{sending?'Sending…':'Send Letter'}</button>
+            <button className="btn-o" onClick={()=>setComposing(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {sent&&<div style={{padding:'1rem',background:'var(--g100)',border:'var(--rt)',marginBottom:'1.35rem',fontFamily:'var(--fm)',fontSize:'.68rem',color:'var(--g600)'}}>
+        Letter sent — thank you! It may take a little while to appear below.
+      </div>}
+      {loading&&<div className="loading">Loading letters</div>}
+      {!loading&&!letters.length&&<div className="empty"><div className="empty-title">No letters yet</div><div className="empty-sub">Be the first to write in</div></div>}
+      {letters.map(l=>(
+        <div key={l.id} style={{padding:'1rem',border:'var(--rt)',marginBottom:'2px',background:'var(--paper)'}}>
+          <div style={{fontFamily:'var(--fh)',fontWeight:700,fontSize:'.97rem',marginBottom:'.15rem'}}>{l.subject}</div>
+          <div style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:'var(--g500)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:'.5rem'}}>
+            {l.guest_name||l.name||'A Reader'} · {fmtDate(l.created_at)}
+          </div>
+          {safe(l.messages).map((m,i)=>(
+            <div key={i} className={`letter-msg ${m.sender==='admin'?'admin-msg':'user-msg'}`} style={{marginBottom:'.4rem'}}>
+              {m.sender==='admin'&&<div className="letter-msg-meta">Voice Express Editorial</div>}
+              <div className="letter-msg-body" style={{whiteSpace:'pre-wrap'}}>{m.content}</div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* Private letters mailbox -- reader account required (login-gated support
+   ticket thread with the editorial team). Only reachable on the live site;
+   the static build renders PublicLettersPage instead (see case 'letters'). */
 function LettersPage({currentUser,toast}){
   const [letters,setLetters]=useState([]);
   const [open,setOpen]=useState(null);
@@ -1250,6 +1653,75 @@ function LettersPage({currentUser,toast}){
           <span style={{fontFamily:'var(--fm)',fontSize:'.58rem',color:statusColors[l.status]||'var(--ink)',textTransform:'uppercase',letterSpacing:'.06em',flexShrink:0}}>{l.status}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ── Like button (static build only -- registers to the Apps Script Sheet
+   the same way comments do; main site has no likes table/routes) ───────── */
+function LikeButton({articleId}){
+  const [count,setCount]=useState(null);
+  const [liked,setLiked]=useState(false);
+  const LS_KEY='ve-liked-articles';
+
+  useEffect(()=>{
+    API.get(`/api/articles/${articleId}/likes`).then(d=>setCount(d&&typeof d.count==='number'?d.count:0)).catch(()=>setCount(0));
+    try{
+      const liked_ids=JSON.parse(localStorage.getItem(LS_KEY)||'[]');
+      setLiked(liked_ids.includes(articleId));
+    }catch(e){}
+  },[articleId]);
+
+  const like=async()=>{
+    if(liked)return;
+    setLiked(true);
+    setCount(c=>(c||0)+1);
+    try{
+      const ids=JSON.parse(localStorage.getItem(LS_KEY)||'[]');
+      localStorage.setItem(LS_KEY,JSON.stringify([...ids,articleId]));
+    }catch(e){}
+    const r=await API.post(`/api/articles/${articleId}/like`,{}).catch(()=>null);
+    if(r&&typeof r.count==='number')setCount(r.count);
+  };
+
+  return(
+    <button className={`btn-o${liked?' on':''}`} onClick={like} disabled={liked}
+      style={{display:'inline-flex',alignItems:'center',gap:'.4rem',marginBottom:'1.4rem'}}
+      title={liked?'You liked this article':'Like this article'}>
+      <span style={{fontSize:'.9rem'}}>{liked?'♥':'♡'}</span>
+      <span>{liked?'Liked':'Like'}{count!==null&&count>0?` · ${count}`:''}</span>
+    </button>
+  );
+}
+
+/* ── Newsletter subscribe box (static build only -- registers to the same
+   Apps Script Sheet as likes/comments/letters) ──────────────────────────── */
+function SubscribeBox({toast}){
+  const [email,setEmail]=useState('');
+  const [sending,setSending]=useState(false);
+  const [done,setDone]=useState(false);
+
+  const submit=async()=>{
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())){toast('Enter a valid email','err');return;}
+    setSending(true);
+    const r=await API.post('/api/subscribe',{email:email.trim()}).catch(()=>({error:'Failed'}));
+    setSending(false);
+    if(r.error){toast(r.error,'err');return;}
+    setDone(true);toast(r.already?'Already subscribed!':'Subscribed!');
+  };
+
+  if(done)return(
+    <div style={{padding:'1rem',border:'var(--rt)',background:'var(--g100)',marginBottom:'1.3rem',fontFamily:'var(--fm)',fontSize:'.68rem',color:'var(--g600)'}}>
+      ✓ You're on the list — thanks for subscribing.
+    </div>
+  );
+
+  return(
+    <div style={{padding:'1rem',border:'var(--rt)',background:'var(--g100)',marginBottom:'1.3rem',display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center'}}>
+      <span style={{fontFamily:'var(--fm)',fontSize:'.62rem',textTransform:'uppercase',letterSpacing:'.06em',color:'var(--g600)'}}>Get the newsletter in your inbox</span>
+      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}
+        placeholder="you@example.com" style={{flex:'1 1 200px',minWidth:0}}/>
+      <button className="btn-p" onClick={submit} disabled={sending}>{sending?'…':'Subscribe'}</button>
     </div>
   );
 }
