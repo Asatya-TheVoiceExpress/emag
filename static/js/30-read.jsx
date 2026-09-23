@@ -1,13 +1,23 @@
-/* The Voice Express SPA -- 30-read.jsx
-   HomePage, CatPage, SectionPage, ArticleHistory, SeriesGrid, ArticleView
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
 
-/* ── Local annotations (anonymous readers only) ──────────────────────────
-   Signed-in readers' annotations live in the DB (/api/annotations). Readers
-   without an account never hit that route -- their notes stay private to
-   this browser in localStorage instead. In the static build (window.VE_STATIC,
-   no accounts at all) this is the only path annotations ever take -- unless
-   a Sheet-backed endpoint is configured, see saveAnn below. */
+var ROLE_BYLINE_LABEL={photographer:'Photos by',illustrator:'Art by',translator:'Translation by',
+  editor:'Edited by','as-told-to':'As told to',reporting:'Additional reporting by',
+  typesetter:'Typeset by','post-editor':'Post-edited by'};
+function joinNames(names){
+  names=(names||[]).filter(Boolean);
+  if(!names.length)return '';
+  if(names.length===1)return names[0];
+  return names.slice(0,-1).join(', ')+' & '+names[names.length-1];
+}
+function bylineCredits(authors){
+  const groups={};
+  (authors||[]).forEach(a=>{
+    const r=a.role||'author';
+    if(r==='author'||r==='co-author')return;
+    (groups[r]=groups[r]||[]).push(a.name);
+  });
+  return Object.keys(groups).map(r=>`${ROLE_BYLINE_LABEL[r]||r[0].toUpperCase()+r.slice(1)+' by'} ${joinNames(groups[r])}`);
+}
+
 var ANN_LS_KEY='ve-local-annotations';
 function lsAllAnns(){ try{return JSON.parse(localStorage.getItem(ANN_LS_KEY)||'{}');}catch(e){return {};} }
 function lsAnnsFor(articleId){ return lsAllAnns()[articleId]||[]; }
@@ -31,9 +41,7 @@ function HomePage({setView,go,toast,sections}){
   const [loading,setLoading]=useState(true);
   const [loadingMore,setLoadingMore]=useState(false);
   const [hasMore,setHasMore]=useState(true);
-  // When a filter/search is active, we fetch server-side into filterResults so we
-  // always see all matching posts regardless of scroll position.
-  const [filterResults,setFilterResults]=useState(null);
+  const [filterResults,setFilterResults]=useState(null); 
   const [filterLoading,setFilterLoading]=useState(false);
   const [searchQ,setSearchQ]=useState('');
   const [fpTab,setFpTab]=useState('search');
@@ -81,8 +89,6 @@ function HomePage({setView,go,toast,sections}){
 
   useEffect(()=>{load();},[]);
 
-  // Re-attach the IntersectionObserver after initial load. Disconnect whenever
-  // any filter/search is active — the full matching set is fetched server-side.
   useEffect(()=>{
     if(loading||activeTag||activeCat||searchQ)return;
     const el=sentinelRef.current;
@@ -94,8 +100,6 @@ function HomePage({setView,go,toast,sections}){
     return()=>obs.disconnect();
   },[loading,activeTag,activeCat,searchQ]);
 
-  // Fetch full server-side filtered set whenever tag, category, or search changes.
-  // Search is debounced 360ms; tag/cat changes fire immediately.
   useEffect(()=>{
     if(!activeTag&&!activeCat&&!searchQ){setFilterResults(null);return;}
     setFilterLoading(true);
@@ -115,7 +119,6 @@ function HomePage({setView,go,toast,sections}){
   const filterActive=activeTag||activeCat||!!searchQ;
   const activeTagName=safe(tags).find(t=>t.id===activeTag)?.name;
   const activeCatName=safe(cats).find(c=>c.slug===activeCat)?.name;
-  // Broadsheet always uses the base paginated set, unaffected by filters.
   const featured=useMemo(()=>articles.filter(a=>a.is_featured),[articles]);
   const feat=featured[0];
   const rest=useMemo(()=>articles.filter(a=>!feat||a.id!==feat.id),[articles,feat]);
@@ -136,8 +139,7 @@ function HomePage({setView,go,toast,sections}){
 
   const leadArt=feat||rest[0];
   const sideStart=feat?0:1;
-  // broadsheet shows lead + 2 briefs = 3 articles total; grid gets the rest
-  const gridArticles=filterActive?(filterResults||[]):rest.slice(sideStart+2);
+  const gridArticles=filterActive?(filterResults||[]):rest.slice(sideStart+2); 
 
   return(
     <div className="bs-page">
@@ -147,7 +149,7 @@ function HomePage({setView,go,toast,sections}){
         <span>Vol. IV · Free · Reader Supported</span>
       </div>
       <div className="bs-hero-split">
-        {/* LEFT: 3-article broadsheet — lead + 2 briefs */}
+        {}
         <div className="bs-hero-left">
           <div className="bs-front">
             <div className="bs-lead-col">
@@ -172,7 +174,7 @@ function HomePage({setView,go,toast,sections}){
             </div>
           </div>
         </div>
-        {/* RIGHT: tabbed filter + search pane */}
+        {}
         <div className="bs-hero-right">
           <div className="bs-filter-pane">
             <div className="bs-fp-head">Browse</div>
@@ -248,7 +250,8 @@ function HomePage({setView,go,toast,sections}){
         <button className="bs-divider-act" onClick={()=>setView('map')}>Map ↗</button>
         <button className="bs-divider-act" onClick={()=>setView('newsletter')}>Newsletter ↗</button>
         <button className="bs-divider-act" onClick={()=>setView('authors')}>Contributors ↗</button>
-              </div>
+        {hasCap('admin')&&<button className="bs-divider-act" onClick={()=>setView('admin')}>Admin ✦</button>}
+      </div>
       <div className="bs-fold-outer">
         {filterActive&&(
           <div className="bs-active-filters">
@@ -278,7 +281,6 @@ function HomePage({setView,go,toast,sections}){
   );
 }
 
-/* Category page */
 function CatPage({cat,setView,go}){
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -300,7 +302,6 @@ function CatPage({cat,setView,go}){
   );
 }
 
-/* SectionPage — topical beat feed, DB-backed */
 function SectionPage({section,sections,setView,go,toast}){
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -325,7 +326,6 @@ function SectionPage({section,sections,setView,go,toast}){
   );
 }
 
-/* Article History */
 function ArticleHistory({history,translators}){
   const [open,setOpen]=useState(false);
   const actionLabel={created:'Written',edited:'Edited',translated:'Translated'};
@@ -353,7 +353,6 @@ function ArticleHistory({history,translators}){
   );
 }
 
-/* Series Grid */
 function SeriesGrid({art,go,setView}){
   const articles=safe(art.series_articles);
   if(!art.series_title||articles.length<2)return null;
@@ -374,8 +373,6 @@ function SeriesGrid({art,go,setView}){
   );
 }
 
-/* Article view */
-/* MediaLightbox — modal carousel for any media group (or single image) */
 function MediaLightbox({items,index:i0,onClose}){
   const [i,setI]=useState(i0||0);
   const n=items.length;
@@ -406,8 +403,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
   const [showAnns,setShowAnns]=useState(false);
   const [popup,setPopup]=useState(null);
   const [popNote,setPopNote]=useState('');
-  /* lang: the currently displayed language code */
-  const [lang,setLang]=useState(init?.language||'en');
+  const [lang,setLang]=useState(init?.language||'en'); 
   const [translated,setTranslated]=useState(null);
   const [translating,setTranslating]=useState(false);
   const contentRef=useRef(null);
@@ -426,9 +422,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
     API.get(`/api/articles/${init.id}`)
       .then(d=>{
         setArt(d);
-        // signed in: DB-backed annotations from the server response.
-        // not signed in: this browser's own local notes for this article.
-        setAnns(currentUser?safe(d.annotations):lsAnnsFor(init.id));
+        setAnns(currentUser?safe(d.annotations):lsAnnsFor(init.id)); 
       })
       .catch(()=>{});
     if(currentUser)API.post('/api/reader/track',{article_id:init.id}).catch(()=>{});
@@ -436,10 +430,8 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
 
   const translate=async target=>{
     const native=art?.language||'en';
-    /* clicking native language resets translation */
-    if(target===native){setLang(native);setTranslated(null);return;}
-    /* already showing this translation */
-    if(target===lang&&translated)return;
+    if(target===native){setLang(native);setTranslated(null);return;} 
+    if(target===lang&&translated)return; 
     setTranslating(true);
     try{
       const d=await API.post('/api/translate',{article_id:art.id,target_language:target});
@@ -452,13 +444,25 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
   const handleSelect=useCallback(()=>{
     const sel=window.getSelection();
     if(!sel||sel.isCollapsed||sel.toString().trim().length<4)return;
+    const root=contentRef.current; if(!root)return;
     const range=sel.getRangeAt(0);
+    if(!root.contains(range.commonAncestorContainer))return; 
     const rect=range.getBoundingClientRect();
     setPopNote('');
     const x=Math.max(8,Math.min(rect.left,window.innerWidth-270));
     const y=Math.min(rect.bottom+window.scrollY+6,window.scrollY+window.innerHeight-170);
     setPopup({x,y,text:sel.toString().trim()});
   },[]);
+
+  useEffect(()=>{
+    let t=null;
+    const onChange=()=>{
+      clearTimeout(t);
+      t=setTimeout(handleSelect,150);
+    };
+    document.addEventListener('selectionchange',onChange);
+    return()=>{clearTimeout(t);document.removeEventListener('selectionchange',onChange);};
+  },[handleSelect]);
 
   const saveAnn=async()=>{
     if(!popup||!popNote.trim())return;
@@ -467,16 +471,10 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
       if(d.error){toast(d.error,'err');return;}
       setAnns(prev=>[...prev,d]);
     }else{
-      // No account -- kept private to this browser either way. On the live
-      // site that's the whole story (no server involved at all). In the
-      // static build (window.VE_STATIC, no accounts exist there ever) any
-      // write that would otherwise need a DB also goes to the Apps Script
-      // Sheet, same convention as comments/likes/letters -- fire-and-forget,
-      // doesn't block the local save or round-trip back into `anns`.
       const d={id:'local-'+Date.now(),article_id:art.id,selected_text:popup.text,note:popNote,created_at:new Date().toISOString()};
       lsSaveAnn(art.id,d);
       setAnns(prev=>[...prev,d]);
-      if(typeof window!=='undefined'&&window.VE_STATIC){
+      if(!hasCap('server_render')){
         API.post('/api/annotations',{article_id:art.id,selected_text:popup.text,note:popNote}).catch(()=>{});
       }
     }
@@ -494,14 +492,11 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
     setAnns(prev=>prev.filter(a=>a.id!==id));
   };
 
-  /* what to display */
   const title   = translated?.title   || art?.title   || '';
   const content = translated?.content || art?.content || '';
   const excerpt = translated?.excerpt || art?.excerpt || '';
   const subtitle = art?.subtitle || '';
 
-  /* drop-cap only the opening paragraph (first <p> in document order, even when
-     nested in a section) -- never stacked. */
   useEffect(()=>{
     const root=contentRef.current; if(!root)return;
     root.querySelectorAll('.ve-dropcap').forEach(p=>p.classList.remove('ve-dropcap'));
@@ -509,7 +504,6 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
     if(first && first.textContent.trim().length>1) first.classList.add('ve-dropcap');
   },[content]);
 
-  /* Esc exits the distraction-free reading view */
   useEffect(()=>{
     if(!readMode)return;
     const h=e=>{if(e.key==='Escape')setReadMode(false);};
@@ -517,10 +511,8 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
     return()=>window.removeEventListener('keydown',h);
   },[readMode]);
 
-  /* external links -> open in a new tab + show a cached content hovercard */
   useEffect(()=>{
     const root=contentRef.current; if(!root)return;
-    /* linkify bare URLs sitting as plain text (citations not wrapped in <a>) */
     const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(n){
       if(!n.nodeValue||!/https?:\/\//.test(n.nodeValue))return NodeFilter.FILTER_REJECT;
       if(n.parentElement&&n.parentElement.closest('a,script,style,code,pre'))return NodeFilter.FILTER_REJECT;
@@ -554,7 +546,6 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
       a.addEventListener('mouseenter',()=>show(a));
       a.addEventListener('mouseleave',hide);
     });
-    /* click any image -> modal carousel (whole group if grouped, else just that image) */
     root.querySelectorAll('figure img').forEach(img=>{
       img.addEventListener('click',()=>{
         const grp=img.closest('.photo-group');
@@ -600,20 +591,27 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
         {subtitle&&<div className="art-subtitle">{subtitle}</div>}
         {excerpt&&<div className="art-deck">{excerpt}</div>}
         <div className="art-byline">
-          {art.byline
-            ? <strong
-                style={{cursor:art.author_id&&goToAuthor?'pointer':'default'}}
-                onClick={()=>art.author_id&&goToAuthor&&goToAuthor(art.author_id)}>{art.byline}</strong>
-            : (art.authors&&art.authors.length
-                ? <span>By {art.authors.map((au,i)=>(
-                    <React.Fragment key={au.id}>
-                      {i>0&&(i===art.authors.length-1?' & ':', ')}
-                      <strong style={{cursor:goToAuthor?'pointer':'default'}}
-                        onClick={()=>goToAuthor&&goToAuthor(au.id)}
-                        title={`All stories by ${au.name} →`}>{au.name}</strong>
-                      {au.role&&au.role!=='author'&&au.role!=='co-author'&&<em style={{fontWeight:400,textTransform:'none'}}> ({au.role})</em>}
-                    </React.Fragment>))}</span>
-                : (art.author_name?<strong>By {art.author_name}</strong>:null))}
+          {(() => {
+            const writers=(art.authors||[]).filter(au=>!au.role||au.role==='author'||au.role==='co-author');
+            const credits=bylineCredits(art.authors);
+            const writerNode = art.byline
+              ? <strong
+                  style={{cursor:art.author_id&&goToAuthor?'pointer':'default'}}
+                  onClick={()=>art.author_id&&goToAuthor&&goToAuthor(art.author_id)}>{art.byline}</strong>
+              : (writers.length
+                  ? <span>By {writers.map((au,i)=>(
+                      <React.Fragment key={au.id}>
+                        {i>0&&(i===writers.length-1?' & ':', ')}
+                        <strong style={{cursor:goToAuthor?'pointer':'default'}}
+                          onClick={()=>goToAuthor&&goToAuthor(au.id)}
+                          title={`All stories by ${au.name} →`}>{au.name}</strong>
+                      </React.Fragment>))}</span>
+                  : (art.author_name?<strong>By {art.author_name}</strong>:null));
+            return <>
+              {writerNode}
+              {credits.map((c,i)=><em key={i} className="art-byline-credit"> — {c}</em>)}
+            </>;
+          })()}
           {art.location_name&&<> — <em>{art.location_name}</em></>}
         </div>
 
@@ -640,7 +638,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
           </div>
           <div className="art-metaright">
             <button className={`btn-s${readMode?' on':''}`} onClick={()=>setReadMode(v=>!v)} title="Toggle distraction-free reading">{readMode?'Exit Read Mode':'Read Mode'}</button>
-            <button className="btn-s" onClick={()=>window.open('static/media/gazette_'+art.id+'.html','_blank')} title="Download this article as a designed Gazette (logo cover, typeset, QR colophon)">Gazette ↓</button>
+            <button className="btn-s" onClick={()=>window.open(hasCap('server_render')?'/api/articles/'+art.id+'/print':'static/media/gazette_'+art.id+'.html','_blank')} title="Download this article as a designed Gazette (logo cover, typeset, QR colophon)">Gazette ↓</button>
             <button className={`btn-s${showAnns?' on':''}`} onClick={()=>setShowAnns(v=>!v)} title="View/add annotations">
               {showAnns?'Hide Notes':'Annotate'}{anns.length>0?` (${anns.length})`:''}
             </button>
@@ -664,7 +662,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
           </div>
         )}
 
-        <div className="art-content dropcap" ref={contentRef} onMouseUp={handleSelect}
+        <div className="art-content dropcap" ref={contentRef} onMouseUp={handleSelect} onTouchEnd={handleSelect}
           dangerouslySetInnerHTML={{__html:content}}/>
 
         {linkPrev&&(
@@ -717,7 +715,6 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
           </div>
         )}
 
-        {/* Article history — editors & translators */}
         {safe(art.history).length>0&&<ArticleHistory history={art.history} translators={art.translators||{}}/>}
 
         <SeriesGrid art={art} go={go} setView={setView}/>
@@ -753,7 +750,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
         )}
       </div>
 
-      {/* Annotation popup */}
+      {}
       {popup&&(
         <div className="ann-popup" style={{left:popup.x,top:popup.y}}>
           <div style={{fontFamily:'var(--fm)',fontSize:'.56rem',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:'.38rem',color:'var(--g600)'}}>Add Note</div>
@@ -771,7 +768,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
         </div>
       )}
 
-      {/* Annotation panel */}
+      {}
       {showAnns&&(
         <div className="ann-panel" role="complementary" aria-label="Annotations">
           <div className="ann-hdr">
@@ -791,7 +788,7 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
       )}
       {art?.id&&(
         <div className="art-wrap">
-          {typeof window!=='undefined'&&window.VE_STATIC&&<LikeButton articleId={art.id}/>}
+          {!hasCap('server_render')&&<LikeButton articleId={art.id}/>}
           <CommentsSection articleId={art.id} toast={toast}/>
         </div>
       )}
@@ -800,4 +797,3 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
   );
 }
 
-/* Timeline */

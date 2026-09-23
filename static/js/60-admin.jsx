@@ -1,6 +1,3 @@
-/* The Voice Express SPA -- 60-admin.jsx
-   AdminPanel, Footer, App
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
 function AdminPanel({setView,go,currentUser}){
   const [tab,setTab]=useState('articles');
   const [articles,setArticles]=useState([]);
@@ -21,14 +18,11 @@ function AdminPanel({setView,go,currentUser}){
   const [msg,setMsg]=useState(null);
   const [stats,setStats]=useState({});
   const [confirm,setConfirm]=useState(null);
-  /* author add form */
   const [newAu,setNewAu]=useState({name:'',email:'',bio:'',role:'',author_type:'reporter',social_twitter:'',avatar_url:''});
-  /* author edit/links state */
   const [editAu,setEditAu]=useState(null);
   const [linksAuId,setLinksAuId]=useState(null);
   const [auLinksMap,setAuLinksMap]=useState({});
   const [newLink,setNewLink]=useState({title:'',url:'',link_type:'web'});
-  /* other forms */
   const [newCat,setNewCat]=useState({name:'',description:''});
   const [newTag,setNewTag]=useState('');
   const [tagFilter,setTagFilter]=useState('');
@@ -65,7 +59,6 @@ function AdminPanel({setView,go,currentUser}){
     else{toast('Article deleted.');load();}
   };
 
-  /* ── selection + bulk actions ── */
   const toggleSel=id=>setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
   const selectMany=ids=>setSelected(s=>{const all=ids.every(i=>s.has(i));return new Set(all?[]:ids);});
   const clearSel=()=>setSelected(new Set());
@@ -91,13 +84,11 @@ function AdminPanel({setView,go,currentUser}){
   },'Tag added');
   const bulkDelete=()=>setConfirm({msg:`Delete ${selected.size} article(s)? This cannot be undone.`,act:()=>runBulk(id=>API.del(`/api/articles/${id}`),'Deleted')});
 
-  /* ── taxonomy rename + merge ── */
   const renameTag=async t=>{const nn=(prompt('Rename tag',t.name)||'').trim();if(!nn||nn===t.name)return;const r=await API.put(`/api/tags/${t.id}`,{name:nn}).catch(()=>({error:'Failed'}));if(r.error)toast(r.error,'err');else{toast('Tag renamed.');load();}};
   const mergeTagInto=async target=>{if(!mergeSrc||mergeSrc===target.id)return;const r=await API.post(`/api/tags/${mergeSrc}/merge`,{into:target.id}).catch(()=>({error:'Failed'}));setMergeSrc(null);if(r.error)toast(r.error,'err');else{toast('Tags merged.');load();}};
   const renameCat=async c=>{const nn=(prompt('Rename category',c.name)||'').trim();if(!nn||nn===c.name)return;const r=await API.put(`/api/categories/${c.id}`,{name:nn,description:c.description||''}).catch(()=>({error:'Failed'}));if(r.error)toast(r.error,'err');else{toast('Category renamed.');load();}};
   const mergeCat=async(c,into)=>{const r=await API.post(`/api/categories/${c.id}/merge`,{into}).catch(()=>({error:'Failed'}));if(r.error)toast(r.error,'err');else{toast('Categories merged.');load();}};
 
-  // edit opens the FULL article (list rows are summaries — content/authors/tags/citations live on the detail)
   const openEdit=async a=>{
     const full=await API.get(`/api/articles/${a.id}`).catch(()=>null);
     setEditing(full&&!full.error?full:a);
@@ -117,7 +108,6 @@ function AdminPanel({setView,go,currentUser}){
     );
   }
 
-  /* CMS access gate — readers and anonymous users are redirected */
   if(!currentUser||currentUser.role==='reader'){
     return(
       <div className="admin-page">
@@ -217,8 +207,7 @@ function AdminPanel({setView,go,currentUser}){
 
         {tab==='series'&&(
           <div>
-            {/* Add series form */}
-            <div style={{padding:'1.35rem',border:'var(--rt)',background:'var(--g100)',marginBottom:'1.85rem'}}>
+                        <div style={{padding:'1.35rem',border:'var(--rt)',background:'var(--g100)',marginBottom:'1.85rem'}}>
               <div className="form-lbl" style={{marginBottom:'.9rem',fontSize:'.65rem'}}>
                 {editingSeries?`Editing: ${editingSeries.title}`:'Add New Series'}
               </div>
@@ -256,8 +245,7 @@ function AdminPanel({setView,go,currentUser}){
               </div>
             </div>
 
-            {/* Series list */}
-            {series.length===0&&(
+                        {series.length===0&&(
               <div className="empty" style={{padding:'2.5rem 0'}}>
                 <div className="empty-icon">¶</div>
                 <div className="empty-title">No series yet</div>
@@ -353,6 +341,7 @@ function AdminPanel({setView,go,currentUser}){
                           ?<button className="btn-s" title="Move to draft" onClick={()=>setRowStatus(a.id,'draft')}>Unpublish</button>
                           :<button className="btn-s" title="Publish now" onClick={()=>setRowStatus(a.id,'published')}>Publish</button>}
                         <button className="btn-s" onClick={()=>setConfirm({msg:`Delete "${a.title.slice(0,55)}"? This cannot be undone.`,act:()=>delArt(a.id)})}>✕</button>
+                        {window.DesignDashboard&&<button className="btn-s" title="Custom PDF design: preview, custom CSS, screenshot-verify" onClick={()=>window.DesignDashboard.showModal('article',a.id,`Design Editor: ${a.title.slice(0,40)}`)}>🎨 Design</button>}
                       </div>
                     </td>
                   </tr>
@@ -377,8 +366,7 @@ function AdminPanel({setView,go,currentUser}){
 
         {tab==='authors'&&(
           <div>
-            {/* Add author form */}
-            <div style={{padding:'1.35rem',border:'var(--rt)',background:'var(--g100)',marginBottom:'1.85rem'}}>
+                        <div style={{padding:'1.35rem',border:'var(--rt)',background:'var(--g100)',marginBottom:'1.85rem'}}>
               <div className="form-lbl" style={{marginBottom:'.9rem',fontSize:'.65rem'}}>Add New Author</div>
               <div className="form-row">
                 <FormLabel label="Full Name *"><input value={newAu.name} onChange={e=>setNewAu(p=>({...p,name:e.target.value}))} placeholder="Full name"/></FormLabel>
@@ -418,8 +406,7 @@ function AdminPanel({setView,go,currentUser}){
               }}>Add Author</button>
             </div>
 
-            {/* Author list */}
-            {authors.map(a=>(
+                        {authors.map(a=>(
               <div key={a.id} style={{border:'var(--rt)',marginBottom:'2px',background:'var(--paper)'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'.85rem',padding:'.72rem 1rem'}}>
                   <Avatar author={a} size={44}/>
@@ -443,8 +430,7 @@ function AdminPanel({setView,go,currentUser}){
                   </div>
                 </div>
 
-                {/* Inline edit form */}
-                {editAu?.id===a.id&&(
+                                {editAu?.id===a.id&&(
                   <div style={{padding:'1rem 1.1rem',background:'var(--g100)',borderTop:'1px solid var(--g300)'}}>
                     <div className="form-row">
                       <div className="form-g"><label className="form-lbl">Name</label><input value={editAu.name||''} onChange={e=>setEditAu(p=>({...p,name:e.target.value}))}/></div>
@@ -481,8 +467,7 @@ function AdminPanel({setView,go,currentUser}){
                   </div>
                 )}
 
-                {/* Link store manager */}
-                {linksAuId===a.id&&(
+                                {linksAuId===a.id&&(
                   <div style={{padding:'1rem 1.1rem',background:'var(--paper)',borderTop:'1px solid var(--g300)'}}>
                     <div className="form-lbl" style={{marginBottom:'.72rem'}}>Link Store — {a.name}</div>
                     {(auLinksMap[a.id]||[]).map(l=>(
@@ -538,6 +523,8 @@ function AdminPanel({setView,go,currentUser}){
                     <div className="form-g"><label className="form-lbl">Role</label>
                       <select value={newUser.role} onChange={e=>setNewUser(p=>({...p,role:e.target.value}))}>
                         <option value="author">Author</option>
+                        <option value="translator">Translator</option>
+                        <option value="typesetter">Typesetter</option>
                         <option value="editor">Editor</option>
                         <option value="admin">Admin</option>
                       </select>
@@ -688,14 +675,13 @@ function AdminPanel({setView,go,currentUser}){
   );
 }
 
-/* Footer */
 function Footer({setView}){
   return(
     <footer>
       <div className="footer-brand">Voice Express</div>
       <div className="footer-tagline">Truth Takes Time</div>
       <div className="footer-links">
-        {[['home','Home'],['puzzles','Puzzles'],['timeline','Timeline'],['map','Map'],['newsletter','Newsletter'],['authors','Contributors']].map(([id,l])=>(
+        {[['home','Home'],['puzzles','Puzzles'],['timeline','Timeline'],['map','Map'],['newsletter','Newsletter'],['authors','Contributors'],...(hasCap('admin')?[['admin','Editorial Desk']]:[])].map(([id,l])=>(
           <span key={id} className="footer-link" onClick={()=>setView(id)}>{l}</span>
         ))}
       </div>
@@ -704,12 +690,6 @@ function Footer({setView}){
   );
 }
 
-/* ── URL routing ───────────────────────────────────────────────────────────
-   Hash-based on purpose. Both mirrors are static GitHub Pages sites with no
-   server-side rewrites, so a real path like /article/foo would 404 on a cold
-   load or a shared link; a hash deep-links with zero server config and works
-   identically under app.py. `view` is either a known page name, 'col:<slug>',
-   or a bare section/category slug -- routeFor/parseRoute map that both ways. */
 const ROUTE_VIEWS={
   home:'/', puzzles:'/puzzles', timeline:'/timeline', map:'/map',
   library:'/newsstand', newsletter:'/newsletter', authors:'/authors',
@@ -724,15 +704,11 @@ function routeFor(view,current,authorId,search,colEntryId){
   if(view==='authors'&&authorId)return '#/author/'+encodeURIComponent(authorId);
   if(view==='search'&&search)return '#/search?q='+encodeURIComponent(search);
   if(Object.prototype.hasOwnProperty.call(ROUTE_VIEWS,view))return '#'+ROUTE_VIEWS[view];
-  // A column ENTRY is its own screen, so it gets its own URL. Without one it
-  // was pure React state: the browser had no entry to go back to, so Back
-  // skipped the entry AND its column and dumped the reader on whatever came
-  // before -- usually Home. It also makes an entry linkable.
   if(view.indexOf('col:')===0){
     const base='#/column/'+encodeURIComponent(view.slice(4));
     return colEntryId?base+'/'+encodeURIComponent(colEntryId):base;
   }
-  return '#/'+encodeURIComponent(view);          // section or category slug
+  return '#/'+encodeURIComponent(view);          
 }
 
 function parseRoute(hash){
@@ -746,11 +722,9 @@ function parseRoute(hash){
   if(seg[0]==='column') return {view:'col:'+(seg[1]||''),colEntryId:seg[2]||null};
   const p='/'+seg.join('/');
   if(VIEW_BY_ROUTE[p])return {view:VIEW_BY_ROUTE[p],query:q};
-  return {view:seg[0]};                          // section or category slug
+  return {view:seg[0]};                          
 }
 
-/* App root */
-const VE_PRODUCT=(typeof window!=='undefined'&&window.VE_PRODUCT)||'full';
 function App(){
   const [view,setView]=useState(VE_PRODUCT==='library'?'library':'home');
   const [current,setCurrent]=useState(null);
@@ -777,33 +751,23 @@ function App(){
   const cycleTheme=()=>setTheme(t=>t==='light'?'sepia':t==='sepia'?'dark':'light');
   const logout=async()=>{await API.post('/api/auth/logout',{}).catch(()=>{});setCurrentUser(null);showToast('Signed out.');};
 
-  /* browser back/forward support: each navigation pushes a history entry
-     carrying enough state (view, current article, author id, scroll y) to
-     restore the exact previous screen on popstate. */
   const poppingRef=useRef(false);
   const currentRef=useRef(null);
   const authorIdRef=useRef(null);
   const searchRef=useRef('');
-  // Which entry of the open column is being read, if any -- carried in the
-  // URL and in history state exactly like viewAuthorId, so Back leaves the
-  // entry and returns to its column instead of unwinding past both.
-  const [colEntryId,setColEntryId]=useState(null);
+  const [colEntryId,setColEntryId]=useState(null);  
   const colEntryRef=useRef(null);
   useEffect(()=>{currentRef.current=current;},[current]);
   useEffect(()=>{authorIdRef.current=viewAuthorId;},[viewAuthorId]);
   useEffect(()=>{searchRef.current=search;},[search]);
   useEffect(()=>{colEntryRef.current=colEntryId;},[colEntryId]);
 
-  /* Cold start: adopt whatever the URL says, so a shared/bookmarked link opens
-     the screen it names instead of always dumping the reader on Home. */
   useEffect(()=>{
     const r=parseRoute(location.hash);
     if(r.query)setSearch(r.query);
     if(r.authorId){authorIdRef.current=r.authorId;setViewAuthorId(r.authorId);}
     if(r.colEntryId){colEntryRef.current=r.colEntryId;setColEntryId(r.colEntryId);}
     if(r.view==='article'&&r.articleSlug){
-      // Articles are fetched by id everywhere, so resolve the shareable slug
-      // against the list once; ArticleView refetches the full record itself.
       API.get('/api/articles').then(list=>{
         const hit=safe(list).find(a=>String(a.slug)===r.articleSlug||String(a.id)===r.articleSlug);
         if(hit){currentRef.current=hit;setCurrent(hit);setView('article');}
@@ -816,10 +780,6 @@ function App(){
       colEntryId:r.colEntryId||null,scrollY:0},'',location.href);
   },[]);
 
-  /* Keep the address bar in step with wherever the app actually is. navTo
-     pushes real history entries; this only rewrites the URL of the entry we
-     are already on, so it never adds a spurious back-step (it also catches
-     the paths that call setView directly rather than going through navTo). */
   useEffect(()=>{
     if(poppingRef.current)return;
     const want=routeFor(view,current,viewAuthorId,search,colEntryId);
@@ -840,16 +800,10 @@ function App(){
     return ()=>window.removeEventListener('scroll',onScroll);
   },[]);
 
-  // Depth of history entries this session has pushed but not yet popped --
-  // lets goBack() tell "there's somewhere real to go back to" apart from
-  // "we're at the first screen the user landed on" (where history.back()
-  // would leave the app, e.g. to whatever site linked here).
   const navDepthRef=useRef(0);
 
   useEffect(()=>{
     const onPop=e=>{
-      // No state means the entry didn't come from navTo -- someone edited the
-      // hash, or followed an in-page link to one. Read the URL instead.
       const st=e.state||(()=>{
         const r=parseRoute(location.hash);
         return {view:r.view||'home',current:null,authorId:r.authorId||null,
@@ -862,10 +816,6 @@ function App(){
       setViewAuthorId(st.authorId||null);
       setColEntryId(st.colEntryId||null);
       setReadMode(false);
-      // The restored view re-renders (and refetches) after this handler, so on
-      // the first frame the document is still too short to scroll back down to
-      // y -- the browser clamps to 0 and the reader loses their place. Retry
-      // over a few frames until the page is actually tall enough.
       const y=st.scrollY||0;
       if(!y){requestAnimationFrame(()=>{window.scrollTo(0,0);poppingRef.current=false;});return;}
       let tries=0;
@@ -883,9 +833,6 @@ function App(){
 
   const navTo=useCallback((newView,extra={})=>{
     const authorId=newView==='authors'?('authorId' in extra?extra.authorId:authorIdRef.current):null;
-    // Only a column view carries an entry id, and only when the caller names
-    // one -- so navigating to the column itself (from its own entry) clears
-    // it, which is what makes "‹ Back to the column" a real history step.
     const colEntry=newView.indexOf('col:')===0&&('colEntryId' in extra)
       ?extra.colEntryId:null;
     colEntryRef.current=colEntry;
@@ -902,18 +849,9 @@ function App(){
     }
     setView(newView);
     setReadMode(false);
-    // Instant, not smooth: a smooth scroll runs across the new view's first
-    // renders and gets interrupted by them, which is what left readers part
-    // way down section/map pages instead of at the top.
-    window.scrollTo(0,0);
+    window.scrollTo(0,0); 
   },[]);
 
-  // Used by every "‹ Back" control in the app instead of navigating to a
-  // fixed destination (a section, a category, home) -- so "back" always
-  // means "the screen I was actually just looking at," the same way the
-  // browser's own back button already behaves via the popstate handler
-  // above. Falls back to Home only when there's no real history to unwind
-  // (e.g. the article was opened directly from an external link).
   const goBack=useCallback(()=>{
     if(navDepthRef.current>0){history.back();}
     else{navTo('home');}
@@ -949,12 +887,13 @@ function App(){
       case 'library':    return <LibraryPage toast={showToast} currentUser={currentUser} setView={nav}/>;
       case 'newsletter': return <NewsletterPage {...props} currentUser={currentUser}/>;
       case 'authors':    return <AuthorsPage {...props} initAuthorId={viewAuthorId} onAuthorShown={()=>setViewAuthorId(null)}/>;
-      case 'admin':      return <AdminPanel setView={nav} go={obj=>{go(obj);nav('article');}} currentUser={currentUser}/>;
+      case 'admin':      return hasCap('admin')?<AdminPanel setView={nav} go={obj=>{go(obj);nav('article');}} currentUser={currentUser}/>:<HomePage {...props} sections={sections}/>;
       case 'search':     return <SearchPage query={search} {...props}/>;
+      case 'profile':    return hasCap('accounts')?<MyProfilePage currentUser={currentUser} toast={showToast} setView={nav}/>:<HomePage {...props} sections={sections}/>;
       case 'about':       return <AboutPage setView={nav}/>;
       case 'submissions': return <SubmissionsPage setView={nav}/>;
-      case 'ebook':       return <PublicEbookRequestPage toast={showToast}/>;
-      case 'letters':    return <PublicLettersPage toast={showToast}/>;
+      case 'ebook':       return hasCap('server_render')?<EbookPage toast={showToast}/>:<PublicEbookRequestPage toast={showToast}/>;
+      case 'letters':    return hasCap('accounts')?<LettersPage currentUser={currentUser} toast={showToast}/>:<PublicLettersPage toast={showToast}/>;
       case 'columns':    return <ColumnsPage {...props}/>;
       default:
         if(view.indexOf('col:')===0)return <ColumnPage slug={view.slice(4)} setView={nav}
@@ -972,6 +911,7 @@ function App(){
   return(
     <>
       <div id="progress-bar"/>
+      <BetaBanner/>
       <Masthead view={view} setView={nav} search={search} setSearch={setSearch} readMode={readMode} setReadMode={setReadMode}
         theme={theme} cycleTheme={cycleTheme} currentUser={currentUser} sections={sections}
         onLogin={()=>setShowLogin(true)} onLogout={logout}/>
@@ -984,8 +924,4 @@ function App(){
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   PUZZLE ENGINE
-   ═══════════════════════════════════════════════════ */
 
-/* Seeded RNG (xorshift32-based) */

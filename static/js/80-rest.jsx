@@ -1,9 +1,6 @@
-/* The Voice Express SPA -- 80-rest.jsx
-   Admin pages/analytics/mailbox/comments, Ebook, Library, static pages, Letters, CommentsSection, render
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
 function AdminPages({toast}){
   const [pages,setPages]=useState([]);
-  const [editing,setEditing]=useState(null); // {slug,title,content}
+  const [editing,setEditing]=useState(null); 
   const [saving,setSaving]=useState(false);
   const editorRef=useRef(null);
   const quillRef=useRef(null);
@@ -134,7 +131,6 @@ function LineChart({data}){
   );
 }
 
-/* ── Admin Analytics ──────────────────────────────────────────── */
 function AdminAnalytics(){
   const [period,setPeriod]=useState('90');
   const [analytics,setAnalytics]=useState(null);
@@ -158,7 +154,6 @@ function AdminAnalytics(){
     setLocations(d);setLocLoading(false);
   };
 
-  /* Build merged chart data */
   const chartData=useMemo(()=>{
     if(!analytics)return null;
     const allM=new Set([
@@ -178,7 +173,6 @@ function AdminAnalytics(){
     ]};
   },[analytics]);
 
-  /* Mount location map */
   useEffect(()=>{
     if(!locations?.locations?.length||!locMapRef.current)return;
     if(locMapInst.current){try{locMapInst.current.remove();}catch{}locMapInst.current=null;}
@@ -205,7 +199,7 @@ function AdminAnalytics(){
 
   return(
     <div>
-      {/* Period selector */}
+      {}
       <div style={{display:'flex',gap:'.32rem',marginBottom:'1.35rem',flexWrap:'wrap',alignItems:'center'}}>
         {[['30','30 days'],['90','90 days'],['365','1 year'],['all','All time']].map(([v,l])=>(
           <button key={v} className={`btn-s${period===v?' on':''}`} onClick={()=>setPeriod(v)}>{l}</button>
@@ -218,7 +212,7 @@ function AdminAnalytics(){
 
       {analytics&&(
         <>
-          {/* Summary row */}
+          {}
           <div className="stats-grid" style={{marginBottom:'1.85rem'}}>
             {[['Published',(analytics.monthly_pubs||[]).reduce((s,r)=>s+r.count,0)],
               ['Total Reads',analytics.total_reads||0],
@@ -232,7 +226,7 @@ function AdminAnalytics(){
             ))}
           </div>
 
-          {/* Line chart */}
+          {}
           {chartData&&(
             <div style={{marginBottom:'1.85rem'}}>
               <div className="sec-lbl"><span>Activity Over Time</span></div>
@@ -248,7 +242,7 @@ function AdminAnalytics(){
             </div>
           )}
 
-          {/* Article performance */}
+          {}
           <div style={{marginBottom:'1.85rem'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.72rem',flexWrap:'wrap',gap:'.32rem'}}>
               <div className="sec-lbl" style={{margin:0}}><span>Article Performance</span></div>
@@ -278,7 +272,7 @@ function AdminAnalytics(){
             </div>
           </div>
 
-          {/* Monthly breakdown */}
+          {}
           {chartData&&chartData.labels.length>1&&(
             <div style={{marginBottom:'1.85rem'}}>
               <div className="sec-lbl"><span>Month by Month</span></div>
@@ -304,7 +298,7 @@ function AdminAnalytics(){
             </div>
           )}
 
-          {/* Reader location map */}
+          {}
           <div style={{marginBottom:'1.85rem'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.72rem',flexWrap:'wrap',gap:'.32rem'}}>
               <div className="sec-lbl" style={{margin:0}}><span>Reader Locations</span></div>
@@ -324,7 +318,7 @@ function AdminAnalytics(){
             )}
           </div>
 
-          {/* Top authors + tags */}
+          {}
           <div className="form-row" style={{alignItems:'start',gap:'2rem'}}>
             {analytics.top_authors?.length>0&&(
               <div>
@@ -354,7 +348,6 @@ function AdminAnalytics(){
   );
 }
 
-/* ── Admin Mailbox ───────────────────────────────────────────── */
 function AdminMailbox({toast,currentUser}){
   const [letters,setLetters]=useState([]);
   const [open,setOpen]=useState(null);
@@ -442,7 +435,6 @@ function AdminMailbox({toast,currentUser}){
   );
 }
 
-/* ── Admin Comments Moderation ───────────────────────────────── */
 function AdminComments({toast}){
   const [comments,setComments]=useState([]);
   const [statusFilter,setStatusFilter]=useState('pending');
@@ -507,12 +499,6 @@ function AdminComments({toast}){
   );
 }
 
-/* ── Sheet Mirrors ───────────────────────────────────────────── */
-/* Read-only views onto the tables site_data_get.py refreshes wholesale from
-   the Google Sheet (see /api/admin/* in app.py). Nothing here writes back --
-   these are archival/visibility mirrors, not editable content. Newsstand
-   Accounts is NOT the same login system as this site's Users -- it's just a
-   read-only view of the Sheet's own passwordless account list. */
 function AdminSheetMirrors({toast}){
   const TABS=[
     ['subscribers','Subscribers','/api/admin/subscribers'],
@@ -619,17 +605,16 @@ function AdminSheetMirrors({toast}){
   );
 }
 
-/* ── Ebook Builder ───────────────────────────────────────────── */
 function EbookPage({toast}){
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
   const [search,setSearch]=useState('');
-  const [selected,setSelected]=useState([]);   // ordered list of article objects
+  const [selected,setSelected]=useState([]);   
   const [title,setTitle]=useState('My Voice Express Collection');
   const [creator,setCreator]=useState('');
   const [description,setDescription]=useState('');
   const [generating,setGenerating]=useState(false);
-  const [genType,setGenType]=useState('epub'); // 'epub'|'magazine'|'magazine-pdf'
+  const [genType,setGenType]=useState('epub'); 
 
   useEffect(()=>{
     API.get('/api/articles?status=published&limit=200')
@@ -709,7 +694,7 @@ function EbookPage({toast}){
       </p>
       <div className="ebook-layout">
 
-        {/* Left — article browser */}
+        {}
         <div className="ebook-browser">
           <div className="ebook-browser-hd">
             <strong>All Published Articles</strong>
@@ -737,7 +722,7 @@ function EbookPage({toast}){
           </div>
         </div>
 
-        {/* Right — selection + metadata */}
+        {}
         <div className="ebook-config">
           <div className="ebook-sel-hd">
             <strong>Selected ({selected.length})</strong>
@@ -805,16 +790,6 @@ function EbookPage({toast}){
   );
 }
 
-/* ── Public Ebook Request (static build) ─────────────────────── */
-/* emag has no server to generate an ePub on demand, so this page collects
-   the same picks EbookPage would (articles, title, curator, description)
-   plus optional requester name/email, and sends the request to the Sheet
-   (ebook_request_add) instead of generating anything itself. site_data_get.py
-   picks up new requests, builds the actual ePub with the same build_epub()/
-   _save_to_library() code path app.py's live /api/ebook/generate uses, and
-   drops it straight into the publications table -- so it shows up in the
-   Newsstand on the next ve-push.py run, same as one generated live. Dead
-   code on the live server (case 'ebook' there still routes to EbookPage). */
 function PublicEbookRequestPage({toast}){
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -972,7 +947,6 @@ function PublicEbookRequestPage({toast}){
   );
 }
 
-/* ── Publications Library: Newsstand ────────────────────────── */
 
 const PUB_TYPE_CONFIG = {
   magazine_pdf:  {label:'Magazine PDF',  icon:'📰', color:'#1a1a1a', accent:'#f0ece4'},
@@ -1020,10 +994,6 @@ function LibraryPage({toast, currentUser, setView}){
     }catch(e){toast('Update failed','err');}
   };
 
-  // Featured is a keep-forever mark, not decoration. Reader-built ebooks are
-  // deleted 30 days after they are made (ve_prune.py) and this is the only
-  // thing that exempts one, so it has to be reachable from the same board an
-  // editor is already looking at the shelf in.
   const toggleFeatured=async(pub)=>{
     const next=pub.is_featured?0:1;
     try{
@@ -1045,11 +1015,9 @@ function LibraryPage({toast, currentUser, setView}){
   };
 
   const openPub=pub=>{
-    // newsletters: PWYW modal offering a broadsheet PDF download or reading online
     if(pub.pub_type==='newsletter'){
       setSelected({...pub, _nl_id:true, _nl:{year:pub._year,month:pub._month},
-        _pdf_url:`static/media/broadsheet_${pub._year}_${String(pub._month).padStart(2,'0')}.pdf`,
-        _scroll_url:`static/media/broadsheet_scroll_${pub._year}_${String(pub._month).padStart(2,'0')}.html`,
+        ...broadsheetLinks(pub._year,pub._month),
         description:'Read this edition online, or take it as a vintage newspaper broadsheet — PDF, plotter-ready.'});
       setPayAmount(0);return;
     }
@@ -1062,7 +1030,6 @@ function LibraryPage({toast, currentUser, setView}){
     toast('PDF added to the Newsstand');setShowUp(false);reload();return true;
   };
 
-  // One newsstand card per content-month; the edition itself generates on demand
   const nlCards=newsletters.map(n=>{
     const ym=`${n.year}-${String(n.month).padStart(2,'0')}`;
     const fi=n.cover_image;
@@ -1076,14 +1043,6 @@ function LibraryPage({toast, currentUser, setView}){
       file_size:0,price_max:0,price_suggested:0,
     };
   });
-  // newsstand = the monthly newsletters (+ deliberately uploaded PDFs). Auto-generated
-  // gazettes / broadsheets / booklets are not shelved here — they're cached + reachable
-  // from each article / edition / column.
-  // Readers see only deliberately-shelved PDFs here. EDITORS also see ebooks,
-  // because this is where featuring happens and a reader-built ebook is on a
-  // 30-day clock until someone marks it kept (ve_prune.py) — invisible here,
-  // it could only ever be rescued from Desk Editor or dtp. The reader-facing
-  // shelf is unchanged: epubs are admitted only in the editorial view.
   const shelfPubs=safe(pubs).filter(p=>p.pub_type==='pdf'||(isAdmin&&p.pub_type==='epub'));
   const allCards=[...shelfPubs,...nlCards].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
   const types=[...new Set(allCards.map(p=>p.pub_type))];
@@ -1105,7 +1064,7 @@ function LibraryPage({toast, currentUser, setView}){
           Every issue, broadsheet, and collection we've made — pay what you feel is fair.{' '}
           All support goes directly to sustaining independent journalism.
         </p>
-        {/* Type filter chips */}
+        {}
         {types.length>1&&(
           <div style={{display:'flex',gap:'.3rem',flexWrap:'wrap'}}>
             <span className={`tag${typeFilter==='all'?' on':''}`} onClick={()=>setTypeFilter('all')}>All</span>
@@ -1216,9 +1175,9 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
 
   return(
     <div className="pub-card" style={{opacity:isHidden?.55:1}}>
-      {/* Cover */}
+      {}
       <div className="pub-cover" style={{background:tc.color}} onClick={onGet}>
-        {/* Always-visible placeholder underneath */}
+        {}
         <div className="pub-cover-ph">
           <div style={{fontSize:'2rem',marginBottom:'.4rem',filter:'drop-shadow(0 2px 4px rgba(0,0,0,.4))'}}>{tc.icon}</div>
           <div style={{fontFamily:'var(--fh)',fontWeight:900,fontSize:'.68rem',letterSpacing:'.14em',
@@ -1232,14 +1191,12 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
             </div>
           )}
         </div>
-        {/* Cover image overlays placeholder if available */}
+        {}
         {pub.cover_image&&(
           <img src={pub.cover_image} alt={pub.title} onError={e=>e.target.style.display='none'}/>
         )}
         <div className="pub-badge">{tc.label}{isHidden&&' · Hidden'}</div>
-        {/* A reader-built ebook that is NOT featured is on a 30-day clock, and
-            an editor scanning the shelf needs to see which those are without
-            opening anything. Only shown in the editorial view. */}
+        {}
         {isAdmin&&pub.is_featured&&(
           <div style={{position:'absolute',top:'.4rem',left:'.4rem',fontSize:'.8rem',
             color:'#f5c451',textShadow:'0 1px 3px rgba(0,0,0,.6)'}} title="Featured — kept permanently">★</div>
@@ -1254,7 +1211,7 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
         )}
       </div>
 
-      {/* Info */}
+      {}
       <div className="pub-info">
         <div className="pub-title" onClick={onGet}>{pub.title}</div>
         <div className="pub-meta">
@@ -1291,19 +1248,14 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
 function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
   const tc=PUB_TYPE_CONFIG[pub.pub_type]||{label:pub.pub_type,icon:'◆',color:'#1a1a1a'};
   const priceMax=pub.price_max||500;
-  const kofiUrl='';   // Ko-fi off for now
-  // Razorpay replaced the UPI deep link. `upi://` only resolves on a phone
-  // with a UPI app installed -- on a desktop browser, where most of this
-  // site's reading happens, the old button simply did nothing. One https
-  // link takes cards, UPI and net banking, and works everywhere.
-  // razorpay.me/@handle carries the amount as a path segment, in rupees.
+  const kofiUrl='';   
   const razorpayBase='https://razorpay.me/@mitaliaayatmahnoorsharma';
   const payLink=amount>0?`${razorpayBase}/${Math.round(amount)}`:razorpayBase;
   const presets=[0,25,50,100,200].filter(p=>p<=priceMax);
   const isFree=amount===0;
 
   const handleDownload=()=>{
-    window.open(String(pub.download_url||'').replace(/^\//,'')||`/api/publications/${pub.id}/download`,'_blank');
+    window.open(pub.download_url?pub.download_url.replace(/^\//,''):`/api/publications/${pub.id}/download`,'_blank');
     toast(isFree
       ?'Downloading — if you enjoy the work, consider supporting us!'
       :`₹${amount} selected — thank you! Downloading now.`);
@@ -1314,13 +1266,13 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
     <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="modal pay-modal">
 
-        {/* Header */}
+        {}
         <div className="modal-hdr">
           <span className="modal-title">{pub.title}</span>
           <span className="modal-close" onClick={onClose}>✕</span>
         </div>
 
-        {/* Cover strip */}
+        {}
         <div className="pay-cover-strip" style={{background:tc.color}}>
           {pub.cover_image
             ? <img src={pub.cover_image} alt={pub.title} onError={e=>e.target.style.display='none'}/>
@@ -1343,9 +1295,9 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
           </div>
         </div>
 
-        {/* Body */}
+        {}
         <div className="pay-inner">
-          {/* Publication meta */}
+          {}
           <div className="pay-pub-meta">
             <span>{tc.label}</span>
             {pub.article_count>0&&<span> · {pub.article_count} articles</span>}
@@ -1355,7 +1307,7 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
 
           {pub.description&&<p className="pay-desc">{pub.description}</p>}
 
-          {/* Pay what you want */}
+          {}
           <div className="pay-section-lbl">Pay What You Want</div>
 
           <div className="pay-presets">
@@ -1368,7 +1320,7 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
             ))}
           </div>
 
-          {/* Payment links (shown when amount > 0) */}
+          {}
           {!isFree&&(
             <div className="pay-btns">
               <a href={payLink} target="_blank" rel="noopener noreferrer"
@@ -1386,7 +1338,7 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
 
           <hr className="pay-divider"/>
 
-          {/* Broadsheet edition → download PDF or read online; Publication → download */}
+          {}
           {pub._pdf_url?(
             <div className="pay-btns" style={{flexDirection:'column'}}>
               <button className="btn-p" style={{width:'100%',fontSize:'.7rem'}}
@@ -1432,7 +1384,6 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
   );
 }
 
-/* ── Generic static page loader (About / Submissions) ─────── */
 function StaticPage({slug,setView,extraActions}){
   const [page,setPage]=useState(null);
   const [loading,setLoading]=useState(true);
@@ -1458,7 +1409,6 @@ function StaticPage({slug,setView,extraActions}){
   );
 }
 
-/* ── About Page ─────────────────────────────────────────────── */
 function AboutPage({setView}){
   return <StaticPage slug="about" setView={setView} extraActions={sv=>(
     <>
@@ -1469,19 +1419,12 @@ function AboutPage({setView}){
   )}/>;
 }
 
-/* ── Submissions Page ────────────────────────────────────────── */
 function SubmissionsPage({setView}){
   return <StaticPage slug="submissions" setView={setView} extraActions={sv=>(
     <button className="btn-o" onClick={()=>sv('about')}>← About Us</button>
   )}/>;
 }
 
-/* ── Letters Page ────────────────────────────────────────────── */
-/* Public letters-to-the-editor -- used in the static build (window.VE_STATIC)
-   in place of the private mailbox below. Submissions go to the Apps Script
-   Sheet (jsonp letters_add, via 15-static-api.jsx); the list shown here is
-   whatever site_data_get.py last froze into data/letters.json -- new
-   submissions appear after its next run, not immediately. */
 function PublicLettersPage({toast}){
   const [letters,setLetters]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -1543,9 +1486,6 @@ function PublicLettersPage({toast}){
   );
 }
 
-/* Private letters mailbox -- reader account required (login-gated support
-   ticket thread with the editorial team). Only reachable on the live site;
-   the static build renders PublicLettersPage instead (see case 'letters'). */
 function LettersPage({currentUser,toast}){
   const [letters,setLetters]=useState([]);
   const [open,setOpen]=useState(null);
@@ -1657,8 +1597,6 @@ function LettersPage({currentUser,toast}){
   );
 }
 
-/* ── Like button (static build only -- registers to the Apps Script Sheet
-   the same way comments do; main site has no likes table/routes) ───────── */
 function LikeButton({articleId}){
   const [count,setCount]=useState(null);
   const [liked,setLiked]=useState(false);
@@ -1694,8 +1632,6 @@ function LikeButton({articleId}){
   );
 }
 
-/* ── Newsletter subscribe box (static build only -- registers to the same
-   Apps Script Sheet as likes/comments/letters) ──────────────────────────── */
 function SubscribeBox({toast}){
   const [email,setEmail]=useState('');
   const [sending,setSending]=useState(false);
@@ -1726,7 +1662,6 @@ function SubscribeBox({toast}){
   );
 }
 
-/* ── Comments Section (inside ArticleView) ───────────────────── */
 function CommentsSection({articleId,toast}){
   const [comments,setComments]=useState([]);
   const [form,setForm]=useState({display_name:'',content:''});

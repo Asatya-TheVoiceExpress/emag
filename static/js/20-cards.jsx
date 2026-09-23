@@ -1,6 +1,3 @@
-/* The Voice Express SPA -- 20-cards.jsx
-   CImg, ACard, FilterPanel
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
 function CImg({a,minH}){
   return(
     <div className="c-img" style={minH?{minHeight:minH}:{}}>
@@ -11,7 +8,6 @@ function CImg({a,minH}){
   );
 }
 
-/* Article card */
 function ACard({a,size='md',setView,go,featured}){
   const nav=()=>{go(a);setView('article');};
   const goSect=e=>{e.stopPropagation();if(a.section_slug)setView(a.section_slug);};
@@ -58,7 +54,6 @@ function ACard({a,size='md',setView,go,featured}){
   );
 }
 
-/* Reusable collapsible filter panel */
 function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,label,hideCategories}){
   const [open,setOpen]=useState(false);
   const [tagQ,setTagQ]=useState('');
@@ -67,7 +62,6 @@ function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,la
   const activeCatName=safe(cats).find(c=>c.slug===activeCat)?.name;
   const tagInputRef=useRef(null);
 
-  // Tag autocomplete: filter by typed query
   const matchedTags=useMemo(()=>{
     if(!tagQ.trim()) return safe(tags).slice(0,60);
     const q=tagQ.toLowerCase();
@@ -88,7 +82,7 @@ function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,la
         {activeTagName&&(
           <span className="filter-active-chip">{activeTagName} <span style={{cursor:'pointer',opacity:.7}} onClick={()=>setActiveTag(null)}>✕</span></span>
         )}
-        {/* Category chip only shown in FilterPanel when cat-bar is NOT present */}
+        {}
         {!hideCategories&&activeCatName&&(
           <span className="filter-active-chip">{activeCatName} <span style={{cursor:'pointer',opacity:.7}} onClick={()=>setActiveCat('')}>✕</span></span>
         )}
@@ -101,7 +95,6 @@ function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,la
         <div className="filter-panel-inner">
           <div className="filter-panel">
 
-            {/* Categories — hidden when the cat-bar is already showing them */}
             {!hideCategories&&safe(cats).length>0&&(
               <>
                 <div className="filter-section-lbl">Categories</div>
@@ -117,7 +110,6 @@ function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,la
               </>
             )}
 
-            {/* Tags — with search/autocomplete */}
             {safe(tags).length>0&&(
               <>
                 <div className="filter-section-lbl" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -158,4 +150,3 @@ function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,la
   );
 }
 
-/* Homepage */

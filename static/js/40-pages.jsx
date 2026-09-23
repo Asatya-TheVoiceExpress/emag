@@ -1,10 +1,7 @@
-/* The Voice Express SPA -- 40-pages.jsx
-   Timeline, Map, Newsletter, AuthorProfile, Authors, Search, MyProfile
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
 function TimelinePage({setView,go}){
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
-  const [zoom,setZoom]=useState('month');   /* 'year' | 'month' */
+  const [zoom,setZoom]=useState('month'); 
   const [fCat,setFCat]=useState('');
   const [fAuthor,setFAuthor]=useState('');
   const [fTag,setFTag]=useState('');
@@ -54,7 +51,6 @@ function TimelinePage({setView,go}){
     <div className="tl-page">
       <div className="sec-lbl"><span>Interactive Timeline</span></div>
 
-      {/* Toolbar */}
       <div className="tl-toolbar">
         <div className="tl-zoom-btns">
           <div className={`tl-zoom-btn${zoom==='year'?' on':''}`} onClick={()=>setZoom('year')} title="Group by year">Year</div>
@@ -76,7 +72,6 @@ function TimelinePage({setView,go}){
         <span style={{fontFamily:'var(--fm)',fontSize:'.6rem',color:'var(--g500)',marginLeft:'auto'}}>{filtered.length} stories</span>
       </div>
 
-      {/* Year zoom */}
       {zoom==='year'&&(
         <div className="tl-axis">
           {byYear.length>0
@@ -91,7 +86,6 @@ function TimelinePage({setView,go}){
         </div>
       )}
 
-      {/* Month zoom */}
       {zoom==='month'&&(
         <div className="tl-axis">
           {byMonth.map(({label,items})=>(
@@ -121,11 +115,8 @@ function TimelinePage({setView,go}){
   );
 }
 
-/* Map */
 function MapPage({setView,go,currentUser}){
-  /* Auto-tagging rewrites every un-geotagged article's lat/lon, so it is a
-     staff action -- /api/articles/auto-geotag is gated by _require_staff(). */
-  const isStaff = currentUser && currentUser.role!=='reader';
+  const isStaff = currentUser && currentUser.role!=='reader'; 
   const [articles,setArticles]=useState([]);
   const [loading,setLoading]=useState(true);
   const [fCat,setFCat]=useState('');
@@ -158,15 +149,13 @@ function MapPage({setView,go,currentUser}){
     return r;
   },[articles,fCat,fAuthor,fYear]);
 
-  /* Build map once — always init tiles even when no articles are geotagged */
   useEffect(()=>{
-    if(loading)return;   // removed ||!articles.length so tiles always render
+    if(loading)return;
     const t=setTimeout(()=>{
       const el=document.getElementById('leaflet-map');
       if(!el)return;
       if(mapInst.current){try{mapInst.current.remove();}catch{}mapInst.current=null;}
-      // Default to India/Delhi view; zoom to article extents once markers added
-      const defaultView=[28.6139,77.2090];
+      const defaultView=[28.6139,77.2090]; 
       const map=L.map('leaflet-map',{zoomControl:true}).setView(defaultView,10);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:18}).addTo(map);
       mapInst.current=map;
@@ -181,9 +170,7 @@ function MapPage({setView,go,currentUser}){
         markersRef.current[a.id]=marker;
         bounds.push([a.latitude,a.longitude]);
       });
-      // The 80ms timer can fire before the container has its final size, so
-      // Leaflet caches wrong dimensions and paints tiles into a narrow strip.
-      // Re-measure BEFORE fitting, or the fit is computed against the bad size.
+      // re-measure size before fitting bounds, or a too-early container size gets cached and tiles paint into a narrow strip
       const fit=()=>{
         map.invalidateSize(false);
         if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30]});
@@ -191,7 +178,6 @@ function MapPage({setView,go,currentUser}){
       };
       fit();
       requestAnimationFrame(fit);
-      // Keep it correct if the container resizes later (window resize, fonts).
       if(typeof ResizeObserver!=='undefined'){
         const ro=new ResizeObserver(()=>map.invalidateSize(false));
         ro.observe(el);
@@ -205,7 +191,7 @@ function MapPage({setView,go,currentUser}){
     };
   },[loading]);
 
-  /* Show/hide markers on filter change */
+  // shows/hides markers on filter change
   useEffect(()=>{
     if(!mapInst.current)return;
     const ids=new Set(filtered.map(a=>a.id));
@@ -234,8 +220,7 @@ function MapPage({setView,go,currentUser}){
       if(d.tagged>0){
         const a2=await API.get('/api/articles?status=published&geotagged=true&limit=200').catch(()=>[]);
         const arr=safe(a2);setArticles(arr);artRef.current=arr;
-        // Re-initialise markers on the existing map
-        if(mapInst.current){
+        if(mapInst.current){ // re-init markers on the existing map
           const icon=L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#0a0a0a;border:2px solid #fafaf8;border-radius:50%;box-shadow:0 0 0 2px #0a0a0a;cursor:pointer;"></div>',iconSize:[13,13],iconAnchor:[6,6],popupAnchor:[0,-12]});
           Object.values(markersRef.current).forEach(m=>m.remove());
           markersRef.current={};
@@ -259,7 +244,7 @@ function MapPage({setView,go,currentUser}){
     <div className="map-page">
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'.5rem'}}>
         <div className="sec-lbl" style={{margin:0}}><span>Map</span> — Geotagged Reporting</div>
-        {isStaff&&<button className="btn-s" onClick={autoGeoTag} disabled={geoTagging} title="Infer Delhi-area locations from article content" style={{fontSize:'.58rem',opacity:geoTagging?.6:1}}>
+        {isStaff&&hasCap('server_render')&&<button className="btn-s" onClick={autoGeoTag} disabled={geoTagging} title="Infer Delhi-area locations from article content" style={{fontSize:'.58rem',opacity:geoTagging?.6:1}}>
           {geoTagging?'Tagging…':'⊕ Auto-tag locations'}
         </button>}
       </div>
@@ -307,24 +292,24 @@ function MapPage({setView,go,currentUser}){
   );
 }
 
-/* Newsletter */
+// purpose: {setView,go,toast,currentUser} -> current/archive monthly newsletter edition, with month nav, editorial edit, broadsheet PWYW purchase
 function NewsletterPage({setView,go,toast,currentUser}){
   const [nl,setNl]=useState(null);
   const [all,setAll]=useState([]);
-  const [range,setRange]=useState(null);   // {min:'YYYY-MM', max:'YYYY-MM'} navigable span
+  const [range,setRange]=useState(null); // {min:'YYYY-MM', max:'YYYY-MM'} navigable span
   const [loading,setLoading]=useState(true);
   const [navving,setNavving]=useState(false);
   const [tab,setTab]=useState('current');
   const [regen,setRegen]=useState(false);
   const [editingEd,setEditingEd]=useState(false);
   const [edDraft,setEdDraft]=useState('');
-  const [pay,setPay]=useState(null);       // PWYW modal target (broadsheet)
+  const [pay,setPay]=useState(null); // PWYW modal target (broadsheet)
   const [payAmt,setPayAmt]=useState(0);
 
   const load=async()=>{
     setLoading(true);
     try{
-      const tgt=window.__nlGoto; window.__nlGoto=null;   // newsstand may request a month
+      const tgt=window.__nlGoto; window.__nlGoto=null; // newsstand may request a specific month
       const [curr,months,rng]=await Promise.all([
         (tgt?API.get(`/api/newsletters/${tgt.year}/${tgt.month}`):API.get('/api/newsletters/current')).catch(()=>null),
         API.get('/api/newsletters/months').catch(()=>[]),
@@ -336,7 +321,6 @@ function NewsletterPage({setView,go,toast,currentUser}){
   };
   useEffect(()=>{load();},[]);
 
-  // fetch (generating on demand) the edition for any month
   const goMonth=async(y,m)=>{
     if(m<1){y--;m=12;} if(m>12){y++;m=1;}
     setNavving(true);
@@ -388,17 +372,16 @@ function NewsletterPage({setView,go,toast,currentUser}){
               title:`${monthStr} ${nl.year} — Broadsheet`,
               pub_type:'broadsheet',
               description:'This edition as a vintage newspaper broadsheet — full grid, puzzles, plotter-ready. Download the PDF, or read the edition online.',
-              _pdf_url:`static/media/broadsheet_${nl.year}_${String(nl.month).padStart(2,'0')}.pdf`,
-              _scroll_url:`static/media/broadsheet_scroll_${nl.year}_${String(nl.month).padStart(2,'0')}.html`,
+              ...broadsheetLinks(nl.year,nl.month),
               _nl:{year:nl.year,month:nl.month}});}}
             title="Download this edition as a vintage broadsheet PDF, or read online">Get this edition ↓</button>
         )}
-        {currentUser&&currentUser.role!=='reader'&&
+        {currentUser&&currentUser.role!=='reader'&&hasCap('server_render')&&
           <button className="btn-s" style={nl&&safe(getC(nl).articles).length>0?{}:{marginLeft:'auto'}} onClick={regenerate} disabled={regen}
             title="Rebuild this edition from current articles">{regen?'Regenerating…':'↻ Regenerate'}</button>}
       </div>
 
-      {typeof window!=='undefined'&&window.VE_STATIC&&<SubscribeBox toast={toast}/>}
+      {!hasCap('server_render')&&<SubscribeBox toast={toast}/>}
 
       {tab==='current'&&nl&&(
         <>
@@ -538,7 +521,6 @@ function NewsletterPage({setView,go,toast,currentUser}){
   );
 }
 
-/* Author Profile — linktree-style public page */
 function AuthorProfilePage({author,onBack,setView,go}){
   const [links,setLinks]=useState([]);
   const [articles,setArticles]=useState([]);
@@ -586,7 +568,6 @@ function AuthorProfilePage({author,onBack,setView,go}){
           })}
         </div>
       )}
-      {/* Tab bar */}
       {(articles.length>0||contrib.translated?.length>0||contrib.edited?.length>0)&&(
         <div style={{display:'flex',borderBottom:'var(--rule)',marginBottom:'1.35rem',textAlign:'left',width:'100%'}}>
           {[
@@ -599,7 +580,6 @@ function AuthorProfilePage({author,onBack,setView,go}){
         </div>
       )}
 
-      {/* Written */}
       {tab==='written'&&articles.length>0&&(
         <div className="news-grid" style={{textAlign:'left'}}>
           {articles.map(a=><ACard key={a.id} a={a} setView={setView} go={go}/>)}
@@ -609,7 +589,6 @@ function AuthorProfilePage({author,onBack,setView,go}){
         <div style={{fontFamily:'var(--fb)',fontStyle:'italic',color:'var(--g500)',fontSize:'1rem'}}>No published articles yet.</div>
       )}
 
-      {/* Translated */}
       {tab==='translated'&&(
         <div style={{textAlign:'left'}}>
           {safe(contrib.translated).map(a=>(
@@ -627,7 +606,6 @@ function AuthorProfilePage({author,onBack,setView,go}){
         </div>
       )}
 
-      {/* Edited */}
       {tab==='edited'&&(
         <div style={{textAlign:'left'}}>
           {safe(contrib.edited).map(a=>(
@@ -648,7 +626,6 @@ function AuthorProfilePage({author,onBack,setView,go}){
   );
 }
 
-/* Authors listing */
 function AuthorsPage({setView,go,initAuthorId,onAuthorShown}){
   const [authors,setAuthors]=useState([]);
   const [selected,setSelected]=useState(null);
@@ -693,7 +670,6 @@ function AuthorsPage({setView,go,initAuthorId,onAuthorShown}){
   );
 }
 
-/* Advanced Search */
 function SearchPage({query:initQ,setView,go}){
   const [q,setQ]=useState(initQ||'');
   const [sugg,setSugg]=useState([]);
@@ -703,7 +679,7 @@ function SearchPage({query:initQ,setView,go}){
   const [selCat,setSelCat]=useState('');
   const [locQ,setLocQ]=useState('');
   const [locResults,setLocResults]=useState([]);
-  const [locPick,setLocPick]=useState(null); /* {lat,lon,name} */
+  const [locPick,setLocPick]=useState(null); 
   const [radius,setRadius]=useState(50);
   const [results,setResults]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -722,23 +698,19 @@ function SearchPage({query:initQ,setView,go}){
       .then(([a,t,c])=>{setAuthors(safe(a));setTags(safe(t));setCats(safe(c));}).catch(()=>{});
   },[]);
 
-  /* Datamuse autocomplete */
   useEffect(()=>{
     clearTimeout(acTimer.current);
-    acDismissed.current=false;   // q really changed -> suggestions welcome again
+    acDismissed.current=false; 
     if(!q.trim()||q.length<2){setSugg([]);return;}
     acTimer.current=setTimeout(async()=>{
       const r=await fetch(`https://api.datamuse.com/sug?s=${encodeURIComponent(q)}&max=7`).then(r=>r.json()).catch(()=>[]);
-      // Enter/Escape may have dismissed the drop while this was in flight --
-      // without this guard the response re-opened it over the results page.
-      if(acDismissed.current)return;
+      if(acDismissed.current)return; 
       setSugg(r.map(x=>x.word));
     },260);
   },[q]);
 
   const dismissSugg=()=>{acDismissed.current=true;clearTimeout(acTimer.current);setSugg([]);};
 
-  /* Run search */
   useEffect(()=>{
     if(!q.trim()&&!selAuthor&&!selTags.length&&!selCat&&!locPick)return;
     setLoading(true);
@@ -763,7 +735,6 @@ function SearchPage({query:initQ,setView,go}){
       }).catch(()=>setLoading(false));
   },[q,titleOnly,selAuthor,selTags,selCat,locPick,radius]);
 
-  /* Leaflet map for location search */
   useEffect(()=>{
     if(!locPick||!mapRef.current)return;
     setTimeout(()=>{
@@ -795,7 +766,6 @@ function SearchPage({query:initQ,setView,go}){
     <div className="adv-search">
       <div className="sec-lbl"><span>Search</span></div>
 
-      {/* Main search bar with autocomplete */}
       <div className="ac-wrap">
         <div style={{display:'flex',gap:'.38rem'}}>
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search articles, topics, keywords…"
@@ -819,7 +789,6 @@ function SearchPage({query:initQ,setView,go}){
       </div>
 
       <div className="adv-search-grid">
-        {/* Filters sidebar */}
         <div className="adv-filters">
           <div className="adv-filter-sec">
             <div className="adv-filter-lbl">Author</div>
@@ -879,7 +848,6 @@ function SearchPage({query:initQ,setView,go}){
           </div>
         </div>
 
-        {/* Results */}
         <div>
           {hasFilters&&<div className="adv-results-hdr">{loading?'Searching…':`${results.length} result${results.length!==1?'s':''}`}</div>}
           {!hasFilters&&<div style={{fontFamily:'var(--fb)',fontStyle:'italic',color:'var(--g500)',padding:'2rem 0',fontSize:'1rem'}}>Type a search term, pick an author, select tags, or drop a location pin.</div>}
@@ -901,7 +869,6 @@ function SearchPage({query:initQ,setView,go}){
   );
 }
 
-/* My Profile / Reader Dashboard */
 function MyProfilePage({currentUser,toast,setView}){
   const [profile,setProfile]=useState(null);
   const [history,setHistory]=useState([]);
@@ -1022,4 +989,3 @@ function MyProfilePage({currentUser,toast,setView}){
   );
 }
 
-/* FormField — defined at module scope to prevent focus-stealing re-mounts */

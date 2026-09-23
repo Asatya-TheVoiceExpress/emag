@@ -1,39 +1,3 @@
-/* emag_shim.jsx -- static-build API shim for The Voice Express.
-   Copied verbatim by ve-push.py into emag/static/js/15-static-api.jsx, loaded
-   right after 10-core.jsx (which defines the global `API` object) and before
-   every other page/view script. It monkey-patches API.get/post/put/del so the
-   *same* reader-facing JSX used by the live site works unmodified against a
-   frozen JSON export instead of the Flask API.
-
-   Data source: ./data/*.json (written by ve-push.py) and, for comments/likes/
-   letter-submissions/subscribe, the Apps Script deployment named in
-   ./data/config.json's "api" field (same one the Newsstand --
-   voiceexpressstand/ -- already uses), called via JSONP exactly like
-   voiceexpressstand/app.js does (see tools/stand_apps_script.gs).
-
-   ./data/letters.json is written by ve-push.py itself (dump_letters(), read
-   straight from voice_express.db's source='sheet' letters), but the letters
-   in it only exist in the DB once site_data_get.py (repo root) has pulled
-   them out of the Sheet first -- so the round trip is: reader submits here
-   via jsonp (letters_add) -> site_data_get.py imports approved rows into
-   voice_express.db (and editors can reply from app.py's Mailbox) -> next
-   ve-push.py run re-reads the DB and refreshes this file, replies included.
-   A submission only shows up on this page after both steps have run.
-
-   Ebook requests (PublicEbookRequestPage, case 'ebook') follow the same
-   shape: this build can't generate an ePub itself, so a submission (jsonp
-   ebook_request_add) just queues the article picks + metadata in the Sheet.
-   site_data_get.py builds the actual file using app.py's own build_epub()/
-   _save_to_library() and inserts it straight into the publications table --
-   the next ve-push.py picks it up in publications.json like any other
-   ebook, no different from one generated live on the server.
-
-   Do not hand-edit emag/static/js/15-static-api.jsx -- edit this file and
-   rerun ve-push.py. */
-/* FormField is normally defined in 50-editor.jsx (excluded from this build),
-   but CommentsSection (80-rest.jsx) and LoginModal (10-core.jsx) -- both
-   reader-facing -- use it too. Keep it available by defining it here, since
-   this file loads right after 10-core.jsx and before everything else. */
 function FormField({label,children}){
   return <div className="form-g"><label className="form-lbl">{label}</label>{children}</div>;
 }
@@ -45,7 +9,9 @@ var STORE = {ready:null, articles:[], categories:[], sections:[], tags:[],
   pages:{}, publications:[], crosswords:{}, config:{api:''}, letters:[], readerState:{}};
 
 function fetchJSON(path){
-  return fetch(path).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+  var build=(typeof window!=='undefined'&&window.VE&&window.VE.build)||'';
+  var url=build?path+(path.indexOf('?')<0?'?':'&')+'v='+encodeURIComponent(build):path;
+  return fetch(url).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
     .catch(function(){ return null; });
 }
 
@@ -63,17 +29,10 @@ STORE.ready = Promise.all([
   fetchJSON('./data/link-previews.json').then(function(d){ STORE.linkPreviews = d||{}; }),
   fetchJSON('./data/puzzles/crossword-words.json').then(function(d){ STORE.crosswords = d||{}; }),
   fetchJSON('./data/config.json').then(function(d){ STORE.config = d||{api:''}; }),
-  // written by site_data_get.py, not ve-push.py -- letters approved & imported
-  // from the Apps Script Sheet into voice_express.db, frozen as of its last run
-  fetchJSON('./data/letters.json').then(function(d){ STORE.letters = d||[]; }),
-  // written by ve-push.py's dump_reader_state() -- what happened to each
-  // signed-in reader's comments/letters/ebook requests, keyed by lowercased
-  // username. See that function's PRIVACY note: this file is public, so it
-  // carries only already-public outcomes, never an email.
-  fetchJSON('./data/reader_state.json').then(function(d){ STORE.readerState = d||{}; }),
+  fetchJSON('./data/letters.json').then(function(d){ STORE.letters = d||[]; }),  
+  fetchJSON('./data/reader_state.json').then(function(d){ STORE.readerState = d||{}; }),  
 ]);
 
-/* ── JSONP to the Apps Script (same convention as voiceexpressstand/app.js) ── */
 function jsonp(params){
   return new Promise(function(res,rej){
     var api = STORE.config.api;
@@ -90,15 +49,6 @@ function jsonp(params){
   });
 }
 
-/* ── passwordless accounts, shared with the Stand ────────────────────────────
-   The same 'Users' sheet and the same signup/login actions voiceexpressstand/
-   app.js uses, so one handle works on both mirrors. localStorage is per-origin,
-   so a reader signs in separately on each domain -- the ACCOUNT is shared, the
-   session is not.
-
-   No password by design (it is a handle, not a credential). Nothing gated on
-   it is private: it decides which already-public outcomes to surface, never
-   what a reader is allowed to see. Do not put anything sensitive behind it. */
 var VE_USER_KEY = 've_user';
 function veUser(){ try{ return localStorage.getItem(VE_USER_KEY)||''; }catch(e){ return ''; } }
 function veSetUser(u){
@@ -108,7 +58,6 @@ function veSetUser(u){
 function veAccount(mode, username){
   return jsonp({action: mode==='up'?'signup':'login', username:username});
 }
-/** Everything the build knows about this reader's own submissions. */
 function veReaderState(username){
   var u = (username||veUser()||'').trim().toLowerCase();
   var s = u && STORE.readerState ? STORE.readerState[u] : null;
@@ -117,7 +66,6 @@ function veReaderState(username){
 window.veUser = veUser; window.veSetUser = veSetUser;
 window.veAccount = veAccount; window.veReaderState = veReaderState;
 
-/* ── localStorage-backed puzzle progress ── */
 var LS_KEY = 've-puzzle-sessions';
 function lsSessions(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch(e){ return {}; } }
 function lsSaveSessions(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(e){} }
@@ -125,7 +73,6 @@ function sessionKey(type,date,difficulty){ return type+'|'+date+'|'+(difficulty|
 
 function dayOfYear(ds){ var d=new Date(ds+'T12:00:00'); return Math.floor((d-new Date(d.getFullYear(),0,0))/864e5); }
 
-/* ── query-string helpers ── */
 function qs(url){ var i=url.indexOf('?'); var p={}; if(i<0) return p;
   new URLSearchParams(url.slice(i+1)).forEach(function(v,k){ p[k]=v; }); return p; }
 function path(url){ var i=url.indexOf('?'); return i<0?url:url.slice(0,i); }
@@ -147,9 +94,6 @@ function articleMatches(a,p,idx){
     if((a.title||'').toLowerCase().indexOf(q)<0) return false;
   } else if(p.search){
     var q2=p.search.toLowerCase();
-    /* `content` is no longer in the listing payload (see getArticle). `idx` is
-       the lazily-fetched plain-text index; if it has not loaded, the match
-       degrades to title/excerpt/author rather than silently finding nothing. */
     var body = (idx && idx[String(a.id)]) || '';
     var hay=[a.title,a.excerpt,a.author_name,body].join(' ').toLowerCase();
     if(hay.indexOf(q2)<0) return false;
@@ -164,35 +108,16 @@ function listArticles(p){
     var out = STORE.articles.filter(function(a){ return articleMatches(a,p,idx); });
     return out.slice(offset, offset+limit);
   };
-  /* only a real full-text search pays for the index download */
-  if(p.search && !p.title_search) return ensureSearchIndex().then(page);
+  if(p.search && !p.title_search) return ensureSearchIndex().then(page);  
   return page(null);
 }
 
-/* ── article detail, fetched on demand ──────────────────────────────────────
-   articles.json ships WITHOUT `content` (see ve-push.py): bodies were 455 KB
-   of a 734 KB file downloaded before first paint, and no listing view renders
-   them. The reader view needs the full record, so pull ./data/articles/<id>.json
-   the first time it is asked for and merge it into the loaded list, so a second
-   visit to the same piece costs nothing. */
-var _detail = {};   /* id -> Promise<article> */
+var _detail = {};   
 
 function findArticleLite(id){
   return STORE.articles.find(function(a){ return String(a.id)===String(id); }) || null;
 }
 
-/* ── read logging ────────────────────────────────────────────────────────────
-   The Stand has logged reads/downloads/pay-taps to the Activity sheet since day
-   one (voiceexpressstand/app.js's logEvent). The emag never logged anything, so
-   every traffic figure in the newsroom covered the Newsstand only and the
-   magazine -- the busier of the two -- was invisible.
-
-   Same `log` action and the same column shape, so both mirrors land in one
-   ledger. Deliberately fire-and-forget and deduped per session: this must never
-   delay or break opening an article, and a reader flipping back to a piece
-   three times in one sitting is one read, not three. No IP lookup either --
-   the Stand fetches one from ipify; that is a third-party call on every read
-   and the field is optional. */
 var _logged = {};
 function logRead(id){
   if(_logged[id]) return; _logged[id] = 1;
@@ -207,12 +132,11 @@ function logRead(id){
 
 function getArticle(id){
   var lite = findArticleLite(id);
-  /* already whole (older build, or previously fetched) */
-  if(lite && typeof lite.content === 'string') return Promise.resolve(lite);
+  if(lite && typeof lite.content === 'string') return Promise.resolve(lite);  
   if(!_detail[id]){
     _detail[id] = fetchJSON('./data/articles/' + encodeURIComponent(id) + '.json')
       .then(function(full){
-        if(!full) return lite;                    /* fall back to what we have */
+        if(!full) return lite;
         var i = STORE.articles.findIndex(function(a){ return String(a.id)===String(id); });
         if(i >= 0) STORE.articles[i] = Object.assign({}, STORE.articles[i], full);
         else STORE.articles.push(full);
@@ -222,8 +146,6 @@ function getArticle(id){
   return _detail[id];
 }
 
-/* Full-text search index -- only ever fetched if the reader actually searches,
-   so browsing costs nothing for a feature most visits never touch. */
 var _searchIdx = null;
 function ensureSearchIndex(){
   if(_searchIdx) return _searchIdx;
@@ -231,7 +153,6 @@ function ensureSearchIndex(){
   return _searchIdx;
 }
 
-/* ── main GET router ── */
 function routeGet(url){
   return STORE.ready.then(function(){
     var p2 = path(url), params = qs(url), m;
@@ -336,19 +257,14 @@ function routeGet(url){
       return STORE.linkPreviews[params.url] || {url:params.url, site:'', title:'', description:'', image:''};
     }
 
-    // Public letters-to-the-editor -- frozen list from the last site_data_get.py
-    // run (submissions go live via jsonp in routePost below, not straight here)
-    if(p2==='/api/letters') return STORE.letters;
+    if(p2==='/api/letters') return STORE.letters;  
 
-    if(p2==='/api/auth/me') return null;   /* no accounts in this build */
+    if(p2==='/api/auth/me') return null;   
 
     return {error:'not available in the static build'};
   });
 }
 
-/* ── auto-translate via MyMemory: free, no API key, CORS-enabled for browser
-   use (unlike the LibreTranslate public instance, which requires a paid key
-   and doesn't set CORS headers) -- good enough for a static, backend-less build */
 var LANG_MM_CODE = {en:'en',hi:'hi',fr:'fr',es:'es',ar:'ar',zh:'zh-CN',de:'de'};
 function mmChunks(text){
   var LIMIT=450;
@@ -388,7 +304,6 @@ function mmTranslateHTML(html, source, target){
   }, Promise.resolve()).then(function(){ return wrap.innerHTML; });
 }
 
-/* ── main POST router ── */
 function routePost(url, data){
   var p2 = path(url), m;
   if((m=p2.match(/^\/api\/articles\/(\d+)\/comments$/))){
@@ -417,10 +332,6 @@ function routePost(url, data){
     });
   }
   if(p2==='/api/ebook-requests'){
-    // emag can't generate an ePub itself -- this hands the article picks +
-    // metadata to the Sheet; site_data_get.py builds the actual file with
-    // app.py's own build_epub()/_save_to_library() and it shows up in the
-    // Newsstand on the next ve-push.py run.
     return jsonp({action:'ebook_request_add', username:veUser(),
       name:(data&&data.name)||'', email:(data&&data.email)||'',
       title:(data&&data.title)||'', creator:(data&&data.creator)||'',
@@ -432,9 +343,6 @@ function routePost(url, data){
       });
   }
   if(p2==='/api/annotations'){
-    // fire-and-forget backup log -- the visible copy lives in localStorage
-    // (see 30-read.jsx saveAnn), this just means it's not lost if the
-    // browser's storage is cleared. No response is read by the caller.
     return jsonp({action:'annotation_add', article_id:(data&&data.article_id)||'',
       selected_text:(data&&data.selected_text)||'', note:(data&&data.note)||''}).catch(function(){ return {ok:false}; });
   }
@@ -452,16 +360,14 @@ function routePost(url, data){
     return Promise.resolve({ok:true});
   }
   if(p2==='/api/puzzles/wordcache'){
-    return Promise.resolve({ok:true});   /* pre-baked; nothing to persist */
+    return Promise.resolve({ok:true});   
   }
   if(p2==='/api/translate'){
-    /* needs the BODY, so it goes through getArticle rather than the lite list */
-    return getArticle(data.article_id).then(function(art){
+    return getArticle(data.article_id).then(function(art){  
       if(!art) return {error:'Article not found'};
       var native = art.language||'en';
       var target = data.target_language;
       if(!target||target===native) return {error:'Invalid target language'};
-      /* a hand-written translation baked into the export always wins over machine translation */
       var existing = ((art.translations)||[]).find(function(x){return x.language===target;});
       if(existing) return existing;
       var srcMM = LANG_MM_CODE[native]||native, tgtMM = LANG_MM_CODE[target]||target;
@@ -479,45 +385,24 @@ function routePost(url, data){
   return Promise.resolve({error:'not available in the static build'});
 }
 
-/* `API` is a `const` declared by 10-core.jsx -- shares this document's global
-   lexical scope (classic scripts, sibling <script>/<script type="text/babel">
-   tags all see the same top-level let/const bindings), so this file must load
-   AFTER 10-core.jsx and stay type="text/babel" like it, not become a plain
-   script (that would run at HTML-parse time, before babel-standalone has even
-   processed 10-core.jsx). We mutate its methods in place rather than
-   reassigning `API` itself (it's a const). */
 API.get  = function(u){ return routeGet(u); };
 API.post = function(u,d){ return routePost(u,d); };
 API.put  = function(u,d){ return Promise.resolve({error:'not available in the static build'}); };
 API.del  = function(u){ return Promise.resolve({error:'not available in the static build'}); };
 API.upload = function(u,fd){ return Promise.resolve({error:'not available in the static build'}); };
 
-/* ── reader desk: sign-in pill + "what happened to my submissions" drawer ─────
-   Deliberately vanilla DOM rather than a React page in 80-rest.jsx: that file
-   is shared with the live app.py build, where none of this exists (real
-   sessions, a real DB, real notifications). Keeping the whole surface inside
-   the shim means the static build gains it without app.py's SPA changing at
-   all -- the same reason the shim owns the puzzle/localStorage layer.
-
-   Everything shown comes from data/reader_state.json, baked at push time; the
-   only live call is signup/login. So the drawer is accurate as of the last
-   ve-push.py run, not this second, and says so. */
 (function readerDesk(){
   function el(tag, cls, txt){
     var n = document.createElement(tag);
     if(cls) n.className = cls;
-    if(txt != null) n.textContent = txt;   // textContent, never innerHTML --
-    return n;                              // titles/excerpts are reader-authored
+    if(txt != null) n.textContent = txt;   
+    return n;
   }
   function fmt(d){
     if(!d) return '';
     var t = new Date(d);
     return isNaN(t) ? '' : t.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
   }
-  /* Editor replies are stored as HTML. A regex tag-strip leaves entities raw
-     ("Yes &mdash; it closes."), so parse properly and take the text. DOMParser
-     builds an inert document -- no scripts run, no images/network fetched --
-     which innerHTML on a detached node does NOT guarantee. */
   function htmlToText(html){
     var s = String(html||'');
     if(!s) return '';
@@ -537,8 +422,6 @@ API.upload = function(u,fd){ return Promise.resolve({error:'not available in the
   host.appendChild(pill); host.appendChild(panel);
 
   function countNews(st){
-    // things the reader probably hasn't seen: an answered letter, a built book,
-    // or a comment that didn't make it through moderation
     return st.letters.filter(function(l){ return l.replied; }).length
          + st.ebooks.filter(function(b){ return b.status==='built'; }).length
          + st.comments.filter(function(c){ return c.status && c.status!=='approved'; }).length;
@@ -624,7 +507,7 @@ API.upload = function(u,fd){ return Promise.resolve({error:'not available in the
       if(b.status==='built' && b.download_url){
         d.appendChild(el('span','ve-desk-badge','Ready'));
         var a = el('a','ve-desk-link','Download your ebook');
-        a.href = b.download_url;   // already relative: emag is a project page
+        a.href = b.download_url;   
         d.appendChild(a);
       } else {
         d.appendChild(el('span','ve-desk-badge ve-desk-badge-wait','Being built'));
@@ -661,9 +544,7 @@ API.upload = function(u,fd){ return Promise.resolve({error:'not available in the
     if(!panel.hidden && !host.contains(e.target)){ panel.hidden = true; }
   });
 
-  // STORE.ready resolves once every data/*.json above has loaded, so
-  // reader_state is present before the pill first reports a count.
-  STORE.ready.then(function(){
+  STORE.ready.then(function(){  
     document.body.appendChild(host);
     draw();
   });

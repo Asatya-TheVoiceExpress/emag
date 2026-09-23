@@ -1,10 +1,13 @@
-/* The Voice Express SPA -- 10-core.jsx
-   consts, API, Toast, Avatar, hooks, NavGrouped, LoginModal, Masthead
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
-
 const {useState,useEffect,useRef,useCallback,useMemo}=React;
 
-/* API */
+const VE=(typeof window!=='undefined'&&window.VE)||{};
+const VE_PRODUCT=VE.product||'full';
+const hasCap=k=>{const c=VE.caps;return !c||c[k]!==false;};
+const broadsheetLinks=(year,month)=>hasCap('server_render')
+  ?{_pdf_url:`/api/newsletters/${year}/${month}/broadsheet?format=pdf`,
+    _scroll_url:`/api/newsletters/${year}/${month}/broadsheet?format=scroll`}
+  :{_pdf_url:`static/media/broadsheet_${year}_${String(month).padStart(2,'0')}.pdf`,_scroll_url:null};
+
 const API={
   get:u=>fetch(u,{credentials:'include'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}),
   post:(u,d)=>fetch(u,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()),
@@ -13,10 +16,24 @@ const API={
   upload:(u,fd)=>fetch(u,{method:'POST',credentials:'include',body:fd}).then(r=>r.json()),
 };
 
-/* Constants */
+const BETA_REPORT_EMAIL='thevoiceexpress@proton.me';
+
+function BetaBanner(){
+  const [hidden,setHidden]=useState(()=>{try{return sessionStorage.getItem('ve-beta-hidden')==='1';}catch{return false;}});
+  if(hidden)return null;
+  const dismiss=()=>{setHidden(true);try{sessionStorage.setItem('ve-beta-hidden','1');}catch{}};
+  const href=`mailto:${BETA_REPORT_EMAIL}?subject=${encodeURIComponent('Error report: The Voice Express')}&body=${encodeURIComponent('Page: '+(typeof location!=='undefined'?location.href:'')+'\n\nWhat went wrong:\n')}`;
+  return(
+    <div className="beta-banner" role="status">
+      <span className="beta-tag">Beta mode</span>
+      <span className="beta-text">This site is still being built. Something broken or wrong?</span>
+      <a className="beta-link" href={href}>Report an error</a>
+      <button className="beta-x" onClick={dismiss} title="Dismiss" aria-label="Dismiss">×</button>
+    </div>
+  );
+}
+
 const LANGS={en:'English',hi:'हिंदी',fr:'Français',es:'Español',ar:'العربية',zh:'中文',de:'Deutsch'};
-/* languages the auto-translate service (MyMemory) actually supports, mapped to its language codes --
-   only these get a "Read in" button; anything missing here is silently excluded rather than shown broken */
 const TRANSLATABLE_LANGS={hi:'hi',fr:'fr',es:'es',ar:'ar',zh:'zh-CN',de:'de'};
 
 const AUTHOR_TYPES=[
@@ -46,31 +63,19 @@ const LINK_TYPES={
   podcast:   {icon:'🎙',label:'Podcast'},
   other:     {icon:'↗', label:'Other'},
 };
-// Static utility pages only — section items come from DB via sections state
-const NAV_STATIC=[
-  {id:'home',l:'Home'},
-  {id:'library',l:'Newsstand'},{id:'puzzles',l:'Puzzles'},{id:'timeline',l:'Timeline'},{id:'map',l:'Map'},
-  {id:'newsletter',l:'Newsletter'},{id:'letters',l:'Letters'},
-  {id:'authors',l:'Authors'},{id:'about',l:'About'},
-  
-];
-// CAT_SLUGS kept empty — sections are DB-backed, routed via sectionSlugs in App
 const CAT_SLUGS=new Set();
 
-/* Helpers */
 const fmtDate=d=>{if(!d)return'';try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}catch{return''}};
 const fmtShort=d=>{if(!d)return'';try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}catch{return''}};
 const initials=n=>((n||'').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?');
 const strip=h=>(h||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
 const safe=a=>Array.isArray(a)?a:[];
 
-/* Toast */
 function Toast({msg,type='ok',onDone}){
   useEffect(()=>{const t=setTimeout(onDone,3400);return()=>clearTimeout(t)},[]);
   return <div className={`toast${type==='err'?' err':''}`}>{msg}</div>;
 }
 
-/* Avatar */
 function Avatar({author,size=80}){
   return(
     <div className="avatar" style={{width:size,height:size,minWidth:size,fontSize:size*.36}}>
@@ -79,7 +84,6 @@ function Avatar({author,size=80}){
   );
 }
 
-/* Reading progress bar */
 function useReadingProgress(){
   useEffect(()=>{
     const bar=document.getElementById('progress-bar');
@@ -95,7 +99,6 @@ function useReadingProgress(){
   },[]);
 }
 
-/* Back to top */
 function BackToTop(){
   const [vis,setVis]=useState(false);
   useEffect(()=>{
@@ -108,12 +111,9 @@ function BackToTop(){
   );
 }
 
-/* NavGrouped — collapsible tree nav for 769–1200px */
-// Static groups — Sections items are injected dynamically from DB at runtime
 const NAV_GROUPS_STATIC=[
   {id:'home',l:'Home'},
   {id:'columns',l:'Columns'},
-  // 'sections' group is built dynamically in NavGrouped via sections prop
   {id:'discover',l:'Discover',items:[
     {id:'timeline',l:'Timeline'},{id:'map',l:'Map'},
     {id:'library',l:'Newsstand'},{id:'puzzles',l:'Puzzles'},{id:'newsletter',l:'Newsletter'},
@@ -121,9 +121,12 @@ const NAV_GROUPS_STATIC=[
   ]},
   {id:'people',l:'People',items:[
     {id:'authors',l:'Authors'},{id:'about',l:'About'},{id:'submissions',l:'Submissions'},
-    {id:'letters',l:'Letters'},
+    {id:'letters',l:'Letters'},{id:'profile',l:'My Profile'},
   ]},
-  ];
+  {id:'admin',l:'Admin ✦'},
+].map(g=>g.id==='people'
+  ?{...g,items:g.items.filter(i=>i.id!=='profile'||hasCap('accounts'))}
+  :g).filter(g=>g.id!=='admin'||hasCap('admin'));
 function NavGrouped({view,go,currentUser,sections}){
   const [open,setOpen]=useState(null);
   const ref=useRef(null);
@@ -134,22 +137,15 @@ function NavGrouped({view,go,currentUser,sections}){
     return()=>document.removeEventListener('click',fn);
   },[]);
 
-  // Build Sections group dynamically from DB sections
   const sectionsGroup=useMemo(()=>{
     if(!safe(sections).length) return null;
     return {id:'sections',l:'Sections',items:sections.map(s=>({id:s.slug,l:s.name}))};
   },[sections]);
 
-  /* Build runtime groups — user section added at right.
-     Sign in/out and theme/ebook already live in the toolbar above this nav row
-     (rendered unconditionally, not just when the flat bar doesn't fit), so an
-     anonymous user gets no entry here -- only logged-in users get one, for the
-     extra destinations (Editorial Desk / My Profile) the toolbar's user pill
-     can't reach in one click. */
   const userGroup=currentUser
     ?{id:'__user',l:`✦ ${currentUser.username}`,items:[
         ...(currentUser.role!=='reader'?[{id:'admin',l:'Editorial Desk ✦'}]:[]),
-        
+        {id:'profile',l:'My Profile'},
       ]}
     :null;
 
@@ -160,18 +156,15 @@ function NavGrouped({view,go,currentUser,sections}){
   const allGroups=userGroup?[...baseGroups,userGroup]:baseGroups;
 
   const renderGroup=g=>{
-    /* Simple action item (sign in) */
     if(g.action&&!g.items)return(
       <div key={g.id} className="ng-btn" style={{marginLeft:'auto',color:'var(--g500)'}}
         onClick={()=>{g.action();setOpen(null);}}>
         {g.l}
       </div>
     );
-    /* Plain nav link */
     if(!g.items)return(
       <div key={g.id} className={`ng-btn${view===g.id?' active':''}`} onClick={()=>{go(g.id);setOpen(null);}}>{g.l}</div>
     );
-    /* Dropdown group */
     const grpActive=g.items.some(i=>i.id===view);
     const isOpen=open===g.id;
     const isUser=g.id==='__user';
@@ -206,7 +199,6 @@ function NavGrouped({view,go,currentUser,sections}){
   );
 }
 
-/* AuthModal — Sign In + Register tabs */
 function LoginModal({onLogin,onClose}){
   const [tab,setTab]=useState('login');
   const [form,setForm]=useState({username:'',password:'',email:''});
@@ -242,6 +234,7 @@ function LoginModal({onLogin,onClose}){
           {err&&<div style={{fontFamily:'var(--fm)',fontSize:'.68rem',color:'#b83232',background:'#fdf3f3',border:'1px solid #b83232',padding:'.42rem .72rem',marginBottom:'.72rem'}}>{err}</div>}
           <FormField label="Username"><input value={form.username} onChange={e=>setF('username',e.target.value)} autoFocus onKeyDown={e=>e.key==='Enter'&&submit()}/></FormField>
           <FormField label="Password"><input type="password" value={form.password} onChange={e=>setF('password',e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/></FormField>
+          {tab==='login'&&<div style={{fontFamily:'var(--fm)',fontSize:'.59rem',color:'var(--g400)',marginTop:'.32rem'}}>Forgot your password? Ask an admin to reset it.</div>}
           {tab==='register'&&<FormField label="Email (optional)"><input type="email" value={form.email} onChange={e=>setF('email',e.target.value)} placeholder="your@email.com"/></FormField>}
           {tab==='register'&&<div style={{fontFamily:'var(--fm)',fontSize:'.59rem',color:'var(--g400)',marginTop:'.32rem'}}>Create a reader account to track reading history and puzzle scores.</div>}
         </div>
@@ -254,21 +247,18 @@ function LoginModal({onLogin,onClose}){
   );
 }
 
-/* Masthead */
 function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycleTheme,currentUser,onLogin,onLogout,sections}){
   const [mob,setMob]=useState(false);
   const [showSearch,setShowSearch]=useState(false);
-  /* true = flat bar fits; false = use grouped dropdowns; start optimistic */
-  const [navFits,setNavFits]=useState(true);
+  const [navFits,setNavFits]=useState(true); 
   const inputRef=useRef(null);
-  const measureRef=useRef(null); /* hidden clone of nav items used for width measurement */
+  const measureRef=useRef(null); 
   const today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const themeIcons={light:'○',sepia:'◑',dark:'●'};
 
-  // Build flat nav: Home → DB sections → utility pages
-  const _product=(typeof window!=='undefined'&&window.VE_PRODUCT)||'full';
+  const _product=VE_PRODUCT;
   const navItems=useMemo(()=>{
-    if(_product==='library')   // standalone library product: the newsstand only
+    if(_product==='library')
       return [{id:'library',l:'Newsstand'},{id:'newsletter',l:'Newsletter'},{id:'about',l:'About'}];
     const items=[
       {id:'home',l:'Home'},
@@ -276,17 +266,12 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
       {id:'columns',l:'Columns'},{id:'library',l:'Newsstand'},{id:'puzzles',l:'Puzzles'},
       {id:'timeline',l:'Timeline'},{id:'map',l:'Map'},
       {id:'newsletter',l:'Newsletter'},{id:'letters',l:'Letters'},
-      // Create Ebook used to exist ONLY as an icon in the masthead toolbar.
-      // The mobile drawer renders this list, so on a phone -- where a title=
-      // tooltip can never fire -- there was no way to discover it by name.
       {id:'ebook',l:'Create Ebook'},
       {id:'authors',l:'Authors'},{id:'about',l:'About'},
     ];
-    // newspaper product: the reader paper without the standalone newsstand tab
     return _product==='newspaper'?items.filter(n=>n.id!=='library'):items;
   },[sections,_product]);
 
-  /* Measure whether the full nav fits inside the masthead */
   useEffect(()=>{
     const check=()=>{
       const measure=measureRef.current;
@@ -295,13 +280,11 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
         setNavFits(window.innerWidth>1400);
         return;
       }
-      /* natural width of all nav items rendered in a row */
       const navW=measure.offsetWidth;
-      /* available width = masthead width */
       setNavFits(navW<=masthead.clientWidth);
     };
-    requestAnimationFrame(check);        /* first paint */
-    const t=setTimeout(check,150);       /* after webfonts settle */
+    requestAnimationFrame(check);
+    const t=setTimeout(check,150); 
     window.addEventListener('resize',check);
     return()=>{clearTimeout(t);window.removeEventListener('resize',check);};
   },[]);
@@ -335,7 +318,7 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
   const go=id=>{setView(id);setMob(false);};
   return(
     <>
-      {/* Hidden off-screen clone — used only for width measurement */}
+      {}
       <div ref={measureRef} aria-hidden="true" style={{
         position:'fixed',top:'-999px',left:0,display:'flex',visibility:'hidden',
         pointerEvents:'none',whiteSpace:'nowrap',flexShrink:0
@@ -349,7 +332,7 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
       </div>
 
       <header id="masthead">
-        {/* Row 1: logo left | masthead brand center | date right */}
+        {}
         <div className="mh-top">
           <div className="mh-logo-side">
             <img className="mh-logo-img" src="static/tve_logo.png" alt="TVE" onError={e=>e.target.style.display='none'}/>
@@ -363,7 +346,7 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
           </div>
         </div>
 
-        {/* Row 2: mini toolbar */}
+        {}
         <div className="mh-toolbar">
           <div className="mh-toolbar-left">
             <span style={{color:'var(--g600)'}}>Est.&nbsp;2022</span>
@@ -403,13 +386,13 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
             {currentUser
               ?<><span className="user-pill" onClick={()=>setView(currentUser.role==='reader'?'profile':'admin')} title={currentUser.role}>✦ {currentUser.username}</span>
                 <button className="btn-icon" aria-label="Sign out" title="Sign out" onClick={onLogout} style={{fontSize:'.68rem'}}>↩</button></>
-              :(typeof window!=='undefined'&&window.VE_STATIC
-                ?null   /* no server on the static mirror -- sign-in is a dead end there */
-                :<button className="btn-icon" aria-label="Sign in" title="Sign in" onClick={onLogin} style={{fontSize:'.68rem'}}>⊕</button>)}
+              :(hasCap('accounts')
+                ?<button className="btn-icon" aria-label="Sign in" title="Sign in" onClick={onLogin} style={{fontSize:'.68rem'}}>⊕</button>
+                :null)}
             <div className="mob-btn" onClick={()=>setMob(true)} role="button" aria-label="Open menu"><span/><span/><span/></div>
           </div>
         </div>
-        {/* Show full flat bar if it fits, otherwise grouped dropdowns */}
+        {}
         {navFits
           ?<nav className="nav-bar" role="navigation">
               {navItems.map(n=><div key={n.id} className={`nav-item${view===n.id?' active':''}`} onClick={()=>go(n.id)}>{n.l}</div>)}
@@ -429,4 +412,3 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
   );
 }
 
-/* Card image */

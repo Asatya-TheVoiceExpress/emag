@@ -1,14 +1,8 @@
-/* The Voice Express SPA -- 55-columns.jsx
-   Columns = subsidiary periodicals (own subsection + homepage rail). Public list +
-   column page (cards | calendar) + entry view, plus the admin CMS (columns, dated
-   entries with the typesetting composer, and ordered panels). Backend: /api/columns* */
 
 const CADENCE_OPTS = ['daily', 'weekly', 'monthly', 'custom'];
 const ENTRY_LAYOUTS = ['prose', 'comic', 'slideshow', 'grid'];
 const fmtEntryDate = d => { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return d; } };
 
-/* a reader picks their own compilation window -> the booklet endpoint groups it with
-   generative period covers (flow-field weeks, Voronoi months). */
 function bookletUrl(id, period) {
   const now = new Date(), iso = d => d.toISOString().slice(0, 10);
   let from, to;
@@ -20,37 +14,40 @@ function bookletUrl(id, period) {
   return u;
 }
 function BookletPicker({ id, label, colTitle }) {
-  /* Static build: list the booklets ve-push actually shipped for this column
-     (publications.json), not on-demand periods -- there is no server here. */
-  const [opts, setOpts] = React.useState([]);
+  const [prebuilt, setPrebuilt] = React.useState(null);
   React.useEffect(() => {
+    if (hasCap('server_render')) return;
+    const prefix = String(colTitle || '') + ' ';
     API.get('/api/publications').then(d => {
       const all = (d && d.publications) || [];
-      const pre = String(colTitle || '') + ' ';
-      setOpts(all.filter(p => (p.pub_type === 'booklet' || p.type === 'booklet')
-        && String(p.title || '').indexOf(pre) === 0 && p.download_url));
-    }).catch(() => { });
+      setPrebuilt(all.filter(p => (p.pub_type === 'booklet' || p.type === 'booklet')
+        && String(p.title || '').indexOf(prefix) === 0 && p.download_url));
+    }).catch(() => setPrebuilt([]));
   }, [colTitle]);
-  if (!opts.length) return null;
-  const trim = t => {
-    const i = String(t).indexOf('Booklet,');
-    return i < 0 ? t : String(t).slice(i + 8).trim();
-  };
-  /* download_url is absolute ('/static/...'), but this build is served from
-     wherever the Pages repo sits -- a project page lives under /<repo>/, where
-     a leading slash resolves to the domain root and 404s. Everything else in
-     emag's own HTML is relative, so match it. */
-  const rel = u => String(u || '').replace(/^\//, '');
+
+  if (hasCap('server_render')) {
+    return (
+      <select className="bs-divider-act" defaultValue="" style={{ marginLeft: 'auto', cursor: 'pointer' }}
+        onChange={e => { if (e.target.value) { window.open(bookletUrl(id, e.target.value)); e.target.value = ''; } }}>
+        <option value="">{label || 'Booklet ↓'}</option>
+        <option value="week">This week</option>
+        <option value="month">This month</option>
+        <option value="year">This year</option>
+        <option value="all">All time</option>
+      </select>
+    );
+  }
+  if (!prebuilt || !prebuilt.length) return null;
+  const trim = t => { const i = String(t).indexOf('Booklet,'); return i < 0 ? t : String(t).slice(i + 8).trim(); };
   return (
     <select className="bs-divider-act" defaultValue="" style={{ marginLeft: 'auto', cursor: 'pointer' }}
       onChange={e => { if (e.target.value) { window.open(e.target.value, '_blank'); e.target.value = ''; } }}>
       <option value="">{label || 'Booklet ↓'}</option>
-      {opts.map(p => <option key={p.id} value={rel(p.download_url)}>{trim(p.title)}</option>)}
+      {prebuilt.map(p => <option key={p.id} value={p.download_url.replace(/^\//, '')}>{trim(p.title)}</option>)}
     </select>
   );
 }
 
-/* ---- public: columns listing ---- */
 function ColumnsPage({ setView, go }) {
   const [cols, setCols] = React.useState(null);
   React.useEffect(() => { API.get('/api/columns').then(d => setCols(safe(d))).catch(() => setCols([])); }, []);
@@ -63,7 +60,7 @@ function ColumnsPage({ setView, go }) {
         <div className="page-sub">Running series from the desk — read as cards, browse by calendar, collected into booklets.</div>
       </div>
       {cols.length === 0
-        ? <div className="empty"><div className="empty-icon">¶</div><div className="empty-title">No columns yet.</div><div className="empty-sub">Check back soon.</div></div>
+        ? <div className="empty"><div className="empty-icon">¶</div><div className="empty-title">No columns yet.</div><div className="empty-sub">{hasCap('admin')?'Start one in Admin → Columns.':'Check back soon.'}</div></div>
         : <div className="cols-grid">{cols.map(c => <ColumnNameplate key={c.id} col={c} onOpen={() => setView('col:' + c.slug)} />)}</div>}
     </div>
   );
@@ -83,23 +80,16 @@ function ColumnNameplate({ col, onOpen, compact }) {
   );
 }
 
-/* ---- public: a single column (cards | calendar) ---- */
 function ColumnPage({ slug, setView, entryId, onOpenEntry, onCloseEntry, goBack }) {
   const [col, setCol] = React.useState(null);
   const [mode, setMode] = React.useState('cards');
   React.useEffect(() => { API.get('/api/columns/' + slug).then(setCol).catch(() => setCol(false)); }, [slug]);
   if (col === null) return <div className="loading">Loading column</div>;
   if (col === false || col.error) return <div className="empty"><div className="empty-title">Column not found.</div></div>;
-  // Which entry is open is decided by the ROUTE, not by local state, so the
-  // browser's Back button leaves the entry and returns to the column -- and a
-  // link to an entry opens that entry rather than the column's card grid.
   const entry = entryId ? (col.entries || []).find(e => String(e.id) === String(entryId)) : null;
   if (entryId && entry) return <ColumnEntryView entry={entry} col={col} onBack={onCloseEntry} />;
   return (
     <div className="page" style={col.accent ? { '--accent': col.accent } : null}>
-      {/* Two distinct moves, because they are two distinct intentions: step
-          back to wherever the reader actually came from (the home rail, a
-          search, the list), or go to the full Columns index on purpose. */}
       <div className="col-navbar">
         <button className="art-back" onClick={goBack}>‹ Back</button>
         <button className="art-back" onClick={() => setView('columns')}>All columns</button>
@@ -118,7 +108,7 @@ function ColumnPage({ slug, setView, entryId, onOpenEntry, onCloseEntry, goBack 
         <div className="ed-tabs">
           {[['cards', 'Cards'], ['calendar', 'Calendar']].map(([m, l]) => <div key={m} className={`ed-tab${mode === m ? ' on' : ''}`} onClick={() => setMode(m)}>{l}</div>)}
         </div>
-        {col.entries && col.entries.length > 0 && <BookletPicker colTitle={col.title} id={col.id} label="Booklet ↓" />}
+        {col.entries && col.entries.length > 0 && <BookletPicker id={col.id} colTitle={col.title} label="Booklet ↓" />}
       </div>
       {mode === 'cards'
         ? (col.entries && col.entries.length
@@ -191,7 +181,6 @@ function ColumnEntryView({ entry, col, onBack }) {
   );
 }
 
-/* ---- homepage rail ---- */
 function ColumnsRail({ setView }) {
   const [cols, setCols] = React.useState([]);
   React.useEffect(() => { API.get('/api/columns').then(d => setCols(safe(d).filter(c => c.is_featured).slice(0, 4))).catch(() => { }); }, []);
@@ -204,7 +193,6 @@ function ColumnsRail({ setView }) {
   );
 }
 
-/* ---- admin: columns CMS (columns + dated entries + panels) ---- */
 function AdminColumns({ toast }) {
   const [cols, setCols] = React.useState([]);
   const [form, setForm] = React.useState(null);
@@ -281,7 +269,7 @@ function AdminColumnEntries({ column, onBack, toast, onUpload }) {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
         <button className="art-back" onClick={onBack}>‹ Columns</button>
         <div className="sec-lbl" style={{ flex: 1 }}><span>{column.title} — entries</span></div>
-        <BookletPicker id={column.id} label="Compile booklet ↓" />
+        <BookletPicker id={column.id} colTitle={column.title} label="Compile booklet ↓" />
         <button className="btn-p" onClick={() => setForm({ ...blank })}>+ New entry</button>
       </div>
       {form && (

@@ -1,6 +1,3 @@
-/* The Voice Express SPA -- 70-puzzles.jsx
-   puzzle helpers, PuzzleCalendar, Sudoku, Crossword, Puzzles
-   Loaded in order as type=text/babel (shared global scope). Do not reorder. */
 function seededRng(seed){
   let s=(seed^0x9e3779b9)>>>0||1;
   return{
@@ -16,7 +13,6 @@ function pzFmtDate(s){try{return new Date(s+'T12:00:00').toLocaleDateString('en-
 function fmtMin(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
 function dayOfYear(ds){const d=new Date(ds+'T12:00:00');return Math.floor((d-new Date(d.getFullYear(),0,0))/864e5);}
 
-/* ─── Sudoku generator ───────────────────────────── */
 function sdkOk(g,r,c,n){
   for(let i=0;i<9;i++)if(g[r][i]===n||g[i][c]===n)return false;
   const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
@@ -43,7 +39,6 @@ function genSudoku(seed,difficulty){
   return{puzzle,solution};
 }
 
-/* ─── Crossword builder ──────────────────────────── */
 const CWS=13;
 const DAILY_TOPICS=['history','science','nature','art','music','film','literature',
   'geography','food','sports','technology','philosophy','astronomy','medicine',
@@ -51,11 +46,6 @@ const DAILY_TOPICS=['history','science','nature','art','music','film','literatur
   'psychology','mythology','language','culture','environment','ocean','space',
   'theatre','poetry','democracy','climate','innovation','tradition','discovery'];
 
-/* Datamuse defs arrive as "<pos>\t<definition>", and the definition often
-   carries a leading domain gloss -- "(astronomy, physics) a celestial body".
-   Truncating at the first comma cut that gloss in half and shipped clues that
-   read just "(astronomy". Cut only on separators OUTSIDE parentheses, then
-   drop any parenthetical left dangling. */
 function cleanClue(def,topic){
   let s=(def||'').replace(/^[a-z]+\t/,'').trim();
   let depth=0,cut=-1;
@@ -67,7 +57,7 @@ function cleanClue(def,topic){
   }
   if(cut>=0)s=s.slice(0,cut);
   const open=s.lastIndexOf('(');
-  if(open>=0&&s.indexOf(')',open)===-1)s=s.slice(0,open);   // dangling "(astronomy"
+  if(open>=0&&s.indexOf(')',open)===-1)s=s.slice(0,open);   
   s=s.trim().replace(/[\s(,;]+$/,'').trim();
   return s||`A word related to ${topic}`;
 }
@@ -136,7 +126,6 @@ function buildCrossword(words,size=CWS){
   return{grid:G,nums,across,down,size};
 }
 
-/* ─── Puzzle archive calendar shared ────────────── */
 function PuzzleCalendar({puzzleType,difficulty,onPick,onBack,title}){
   const today=todayStr();
   const [archive,setArchive]=useState({});
@@ -188,9 +177,6 @@ function PuzzleCalendar({puzzleType,difficulty,onPick,onBack,title}){
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   SUDOKU PAGE
-   ═══════════════════════════════════════════════════ */
 function SudokuPage({toast}){
   const today=todayStr();
   const [date,setDate]=useState(today);
@@ -198,7 +184,7 @@ function SudokuPage({toast}){
   const [puzzle,setPuzzle]=useState(null);
   const [solution,setSolution]=useState(null);
   const [board,setBoard]=useState(null);
-  const [nGrid,setNGrid]=useState(null); /* notes */
+  const [nGrid,setNGrid]=useState(null); 
   const [sel,setSel]=useState(null);
   const [notesMode,setNotesMode]=useState(false);
   const [checking,setChecking]=useState(false);
@@ -209,13 +195,11 @@ function SudokuPage({toast}){
   const t0Ref=useRef(null);
   const saveRef=useRef(null);
 
-  /* load puzzle + saved state from DB */
   useEffect(()=>{
     const seed=strToSeed(`${date}-${diff}`);
     const{puzzle:p,solution:s}=genSudoku(seed,diff);
     setPuzzle(p);setSolution(s);
     setSel(null);setChecking(false);setNotesMode(false);
-    /* reset to fresh board immediately, then overwrite with saved state if any */
     setBoard(p.map(r=>[...r]));
     setNGrid(Array.from({length:9},()=>Array.from({length:9},()=>new Set())));
     setElapsed(0);setCompleted(false);
@@ -231,7 +215,6 @@ function SudokuPage({toast}){
       .catch(()=>{});
   },[date,diff]);
 
-  /* timer */
   useEffect(()=>{
     clearInterval(timerRef.current);
     if(completed||tab!=='play'||!board)return;
@@ -240,7 +223,6 @@ function SudokuPage({toast}){
     return()=>clearInterval(timerRef.current);
   },[tab,completed,!!board]);
 
-  /* debounced persist to DB */
   useEffect(()=>{
     if(!board||!nGrid)return;
     clearTimeout(saveRef.current);
@@ -295,7 +277,7 @@ function SudokuPage({toast}){
 
   return(
     <div className="su-wrap">
-      {/* header controls */}
+      {}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
         <div style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
           <button className="btn-s" onClick={()=>setDate(shiftDay(date,-1))}>◀</button>
@@ -313,7 +295,7 @@ function SudokuPage({toast}){
 
       {completed&&<div style={{padding:'.65rem',background:'var(--ink)',color:'var(--paper)',fontFamily:'var(--fm)',fontSize:'.7rem',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:'1rem',textAlign:'center'}}>Solved · {fmtMin(elapsed)}</div>}
 
-      {/* grid */}
+      {}
       <div className="su-grid"
         tabIndex={0} style={{outline:'none'}}
         onKeyDown={e=>{
@@ -347,14 +329,14 @@ function SudokuPage({toast}){
         }))}
       </div>
 
-      {/* numpad */}
+      {}
       <div className="su-numpad">
         {[1,2,3,4,5,6,7,8,9].map(n=><button key={n} onClick={()=>enter(n)}>{n}</button>)}
         <button className="erase" onClick={()=>enter(0)}>Erase</button>
         <button className={`notes-btn${notesMode?' on':''}`} onClick={()=>setNotesMode(v=>!v)}>Notes{notesMode?' ON':' OFF'}</button>
       </div>
 
-      {/* action row */}
+      {}
       <div style={{display:'flex',gap:'.38rem',justifyContent:'center',flexWrap:'wrap',marginBottom:'.75rem'}}>
         <button className={`btn-s${checking?' on':''}`} onClick={()=>setChecking(v=>!v)}>Check</button>
         <button className="btn-s" onClick={()=>{if(window.confirm('Reveal the full solution?')){setBoard(solution.map(r=>[...r]));setCompleted(false);}}}>Reveal</button>
@@ -365,16 +347,13 @@ function SudokuPage({toast}){
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   CROSSWORD PAGE
-   ═══════════════════════════════════════════════════ */
 function CrosswordPage({toast}){
   const today=todayStr();
   const [date,setDate]=useState(today);
   const [cw,setCw]=useState(null);
   const [userG,setUserG]=useState(null);
   const [loading,setLoading]=useState(false);
-  const [sel,setSel]=useState(null); /* [r,c] */
+  const [sel,setSel]=useState(null); 
   const [dir,setDir]=useState('H');
   const [checking,setChecking]=useState(false);
   const [completed,setCompleted]=useState(false);
@@ -391,7 +370,6 @@ function CrosswordPage({toast}){
   async function loadCW(d){
     setLoading(true);setCw(null);setSel(null);setChecking(false);setDir('H');
     try{
-      /* 1. word cache: check DB, then Datamuse */
       let wdata=await API.get(`/api/puzzles/wordcache?date=${d}`).catch(()=>null);
       if(!wdata){
         const doy=dayOfYear(d);
@@ -407,12 +385,9 @@ function CrosswordPage({toast}){
         API.post('/api/puzzles/wordcache',{date:d,...wdata}).catch(()=>{});
       }
       setTopic(wdata.topic);
-      // Caches (incl. the emag's baked crossword-words.json) were written by the
-      // old parser, so re-clean on the way in rather than only at fetch time.
       const built=buildCrossword((wdata.words||[]).map(w=>({...w,clue:cleanClue(w.clue,wdata.topic)})));
       if(!built||built.across.length<3){toast('Could not build crossword — will retry with a different source','err');setLoading(false);return;}
       setCw(built);
-      /* 2. user state: load from DB */
       const sv=await API.get(`/api/puzzles/session?type=crossword&date=${d}&difficulty=`).catch(()=>null);
       if(sv&&sv.state){
         const st=typeof sv.state==='string'?JSON.parse(sv.state):sv.state;
@@ -425,7 +400,6 @@ function CrosswordPage({toast}){
     setLoading(false);
   }
 
-  /* timer */
   useEffect(()=>{
     clearInterval(timerRef.current);
     if(completed||tab!=='play'||!cw)return;
@@ -434,7 +408,6 @@ function CrosswordPage({toast}){
     return()=>clearInterval(timerRef.current);
   },[tab,completed,!!cw]);
 
-  /* debounced persist to DB */
   useEffect(()=>{
     if(!userG||!cw)return;
     clearTimeout(cwSaveRef.current);
@@ -447,7 +420,6 @@ function CrosswordPage({toast}){
     return()=>clearTimeout(cwSaveRef.current);
   },[userG,elapsed,completed]);
 
-  /* focus hidden input when a cell is selected */
   useEffect(()=>{if(sel&&hidRef.current)hidRef.current.focus();},[sel]);
 
   function wordAt(r,c,d){
@@ -485,10 +457,6 @@ function CrosswordPage({toast}){
     if(prev)setSel(prev);
   }
 
-  /* Ctrl+arrow: free single-cell movement across the whole grid, independent
-     of the current word/direction -- steps over black squares instead of
-     stopping at them, and crosses between across/down words. Plain arrows
-     stay word-bound (see inputKey). */
   function moveCell(r,c,dr,dc){
     if(!cw)return null;
     let nr=r+dr,nc=c+dc;
@@ -501,7 +469,6 @@ function CrosswordPage({toast}){
     const[r,c]=sel;
     if(cw.grid[r][c]===null)return;
     const ng=userG.map(row=>[...row]);ng[r][c]=ch.toUpperCase();setUserG(ng);advance(r,c,dir,ng);
-    /* check win */
     const allW=[...cw.across,...cw.down];
     if(allW.every(w=>{const dr=w.dir==='V'?1:0,dc=w.dir==='H'?1:0;for(let i=0;i<w.len;i++)if(ng[w.r+dr*i][w.c+dc*i]!==w.word[i])return false;return true;})){setCompleted(true);toast('Crossword complete! Brilliant! ✓');API.post('/api/reader/puzzle-complete',{type:'crossword',date,difficulty:'',elapsed}).catch(()=>{});}
   }
@@ -555,7 +522,7 @@ function CrosswordPage({toast}){
 
   return(
     <div>
-      {/* header */}
+      {}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
         <div style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
           <button className="btn-s" onClick={()=>setDate(shiftDay(date,-1))}>◀</button>
@@ -574,17 +541,14 @@ function CrosswordPage({toast}){
 
       {!loading&&cw&&userG&&(
         <>
-          {/* hidden input captures physical keyboard */}
+          {}
           <input ref={hidRef} style={{position:'fixed',top:'-999px',left:'-999px',opacity:0,width:1,height:1,fontSize:16,pointerEvents:'none'}}
             onKeyDown={inputKey} readOnly inputMode="text" autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck="false"/>
 
           <div className="cw-layout">
-            {/* grid */}
+            {}
             <div>
-              {/* Current clue, pinned above the grid -- on narrow screens the
-                  clue list sits below the (often tall) grid, out of view, so
-                  without this a phone user has no way to see what they're
-                  filling in without scrolling away from the grid itself. */}
+              {}
               <div className="cw-active-clue">
                 {selWord
                   ? <><span className="cw-clue-n">{selWord.num}{dir==='H'?'A':'D'}</span>{selWord.clue}</>
@@ -621,7 +585,7 @@ function CrosswordPage({toast}){
                   }))}
                 </div>
               </div>
-              {/* on-screen keyboard: works regardless of native mobile keyboard behavior */}
+              {}
               <div className="cw-keyboard">
                 {['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'].map((row,i)=>(
                   <div key={i} className="cw-kb-row">
@@ -632,7 +596,7 @@ function CrosswordPage({toast}){
                   <button type="button" className="cw-kb-wide" onClick={doBackspace}>⌫ Delete</button>
                 </div>
               </div>
-              {/* actions */}
+              {}
               <div style={{display:'flex',gap:'.32rem',flexWrap:'wrap',marginTop:'.72rem'}}>
                 <button className={`btn-s${checking?' on':''}`} onClick={()=>setChecking(v=>!v)}>Check</button>
                 <button className="btn-s" onClick={()=>{
@@ -655,7 +619,7 @@ function CrosswordPage({toast}){
               </div>
             </div>
 
-            {/* clues */}
+            {}
             <div className="cw-clues-panel">
               <h4>Across</h4>
               {cw.across.map(w=>(
@@ -679,11 +643,7 @@ function CrosswordPage({toast}){
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   PUZZLES HUB
-   ═══════════════════════════════════════════════════ */
 function PuzzlesPage({toast}){
-  /* ALL hooks must come first — before any conditional returns */
   const [active,setActive]=useState('hub');
   const today=todayStr();
   const [sdkDone,setSdkDone]=useState(false);
@@ -734,6 +694,3 @@ function PuzzlesPage({toast}){
     </div>
   );
 }
-
-/* ── SVG Line Chart ──────────────────────────────────────────── */
-/* ── Admin Pages Editor ──────────────────────────────────────── */
