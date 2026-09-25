@@ -277,7 +277,6 @@ function SudokuPage({toast}){
 
   return(
     <div className="su-wrap">
-      {}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
         <div style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
           <button className="btn-s" onClick={()=>setDate(shiftDay(date,-1))}>◀</button>
@@ -295,7 +294,6 @@ function SudokuPage({toast}){
 
       {completed&&<div style={{padding:'.65rem',background:'var(--ink)',color:'var(--paper)',fontFamily:'var(--fm)',fontSize:'.7rem',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:'1rem',textAlign:'center'}}>Solved · {fmtMin(elapsed)}</div>}
 
-      {}
       <div className="su-grid"
         tabIndex={0} style={{outline:'none'}}
         onKeyDown={e=>{
@@ -329,14 +327,12 @@ function SudokuPage({toast}){
         }))}
       </div>
 
-      {}
       <div className="su-numpad">
         {[1,2,3,4,5,6,7,8,9].map(n=><button key={n} onClick={()=>enter(n)}>{n}</button>)}
         <button className="erase" onClick={()=>enter(0)}>Erase</button>
         <button className={`notes-btn${notesMode?' on':''}`} onClick={()=>setNotesMode(v=>!v)}>Notes{notesMode?' ON':' OFF'}</button>
       </div>
 
-      {}
       <div style={{display:'flex',gap:'.38rem',justifyContent:'center',flexWrap:'wrap',marginBottom:'.75rem'}}>
         <button className={`btn-s${checking?' on':''}`} onClick={()=>setChecking(v=>!v)}>Check</button>
         <button className="btn-s" onClick={()=>{if(window.confirm('Reveal the full solution?')){setBoard(solution.map(r=>[...r]));setCompleted(false);}}}>Reveal</button>
@@ -522,7 +518,6 @@ function CrosswordPage({toast}){
 
   return(
     <div>
-      {}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
         <div style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
           <button className="btn-s" onClick={()=>setDate(shiftDay(date,-1))}>◀</button>
@@ -541,14 +536,11 @@ function CrosswordPage({toast}){
 
       {!loading&&cw&&userG&&(
         <>
-          {}
           <input ref={hidRef} style={{position:'fixed',top:'-999px',left:'-999px',opacity:0,width:1,height:1,fontSize:16,pointerEvents:'none'}}
             onKeyDown={inputKey} readOnly inputMode="text" autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck="false"/>
 
           <div className="cw-layout">
-            {}
             <div>
-              {}
               <div className="cw-active-clue">
                 {selWord
                   ? <><span className="cw-clue-n">{selWord.num}{dir==='H'?'A':'D'}</span>{selWord.clue}</>
@@ -585,7 +577,6 @@ function CrosswordPage({toast}){
                   }))}
                 </div>
               </div>
-              {}
               <div className="cw-keyboard">
                 {['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'].map((row,i)=>(
                   <div key={i} className="cw-kb-row">
@@ -596,7 +587,6 @@ function CrosswordPage({toast}){
                   <button type="button" className="cw-kb-wide" onClick={doBackspace}>⌫ Delete</button>
                 </div>
               </div>
-              {}
               <div style={{display:'flex',gap:'.32rem',flexWrap:'wrap',marginTop:'.72rem'}}>
                 <button className={`btn-s${checking?' on':''}`} onClick={()=>setChecking(v=>!v)}>Check</button>
                 <button className="btn-s" onClick={()=>{
@@ -619,7 +609,6 @@ function CrosswordPage({toast}){
               </div>
             </div>
 
-            {}
             <div className="cw-clues-panel">
               <h4>Across</h4>
               {cw.across.map(w=>(

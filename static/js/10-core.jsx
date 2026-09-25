@@ -318,7 +318,6 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
   const go=id=>{setView(id);setMob(false);};
   return(
     <>
-      {}
       <div ref={measureRef} aria-hidden="true" style={{
         position:'fixed',top:'-999px',left:0,display:'flex',visibility:'hidden',
         pointerEvents:'none',whiteSpace:'nowrap',flexShrink:0
@@ -332,7 +331,6 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
       </div>
 
       <header id="masthead">
-        {}
         <div className="mh-top">
           <div className="mh-logo-side">
             <img className="mh-logo-img" src="static/tve_logo.png" alt="TVE" onError={e=>e.target.style.display='none'}/>
@@ -346,7 +344,6 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
           </div>
         </div>
 
-        {}
         <div className="mh-toolbar">
           <div className="mh-toolbar-left">
             <span style={{color:'var(--g600)'}}>Est.&nbsp;2022</span>
@@ -392,7 +389,6 @@ function Masthead({view,setView,search,setSearch,readMode,setReadMode,theme,cycl
             <div className="mob-btn" onClick={()=>setMob(true)} role="button" aria-label="Open menu"><span/><span/><span/></div>
           </div>
         </div>
-        {}
         {navFits
           ?<nav className="nav-bar" role="navigation">
               {navItems.map(n=><div key={n.id} className={`nav-item${view===n.id?' active':''}`} onClick={()=>go(n.id)}>{n.l}</div>)}

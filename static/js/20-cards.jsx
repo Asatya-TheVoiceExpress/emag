@@ -82,7 +82,6 @@ function FilterPanel({tags,cats,activeTag,setActiveTag,activeCat,setActiveCat,la
         {activeTagName&&(
           <span className="filter-active-chip">{activeTagName} <span style={{cursor:'pointer',opacity:.7}} onClick={()=>setActiveTag(null)}>✕</span></span>
         )}
-        {}
         {!hideCategories&&activeCatName&&(
           <span className="filter-active-chip">{activeCatName} <span style={{cursor:'pointer',opacity:.7}} onClick={()=>setActiveCat('')}>✕</span></span>
         )}

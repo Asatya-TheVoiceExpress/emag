@@ -170,7 +170,6 @@ function MapPage({setView,go,currentUser}){
         markersRef.current[a.id]=marker;
         bounds.push([a.latitude,a.longitude]);
       });
-      // re-measure size before fitting bounds, or a too-early container size gets cached and tiles paint into a narrow strip
       const fit=()=>{
         map.invalidateSize(false);
         if(bounds.length>1)map.fitBounds(bounds,{padding:[30,30]});
@@ -191,7 +190,6 @@ function MapPage({setView,go,currentUser}){
     };
   },[loading]);
 
-  // shows/hides markers on filter change
   useEffect(()=>{
     if(!mapInst.current)return;
     const ids=new Set(filtered.map(a=>a.id));
@@ -220,7 +218,7 @@ function MapPage({setView,go,currentUser}){
       if(d.tagged>0){
         const a2=await API.get('/api/articles?status=published&geotagged=true&limit=200').catch(()=>[]);
         const arr=safe(a2);setArticles(arr);artRef.current=arr;
-        if(mapInst.current){ // re-init markers on the existing map
+        if(mapInst.current){
           const icon=L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:#0a0a0a;border:2px solid #fafaf8;border-radius:50%;box-shadow:0 0 0 2px #0a0a0a;cursor:pointer;"></div>',iconSize:[13,13],iconAnchor:[6,6],popupAnchor:[0,-12]});
           Object.values(markersRef.current).forEach(m=>m.remove());
           markersRef.current={};
@@ -292,24 +290,23 @@ function MapPage({setView,go,currentUser}){
   );
 }
 
-// purpose: {setView,go,toast,currentUser} -> current/archive monthly newsletter edition, with month nav, editorial edit, broadsheet PWYW purchase
 function NewsletterPage({setView,go,toast,currentUser}){
   const [nl,setNl]=useState(null);
   const [all,setAll]=useState([]);
-  const [range,setRange]=useState(null); // {min:'YYYY-MM', max:'YYYY-MM'} navigable span
+  const [range,setRange]=useState(null);
   const [loading,setLoading]=useState(true);
   const [navving,setNavving]=useState(false);
   const [tab,setTab]=useState('current');
   const [regen,setRegen]=useState(false);
   const [editingEd,setEditingEd]=useState(false);
   const [edDraft,setEdDraft]=useState('');
-  const [pay,setPay]=useState(null); // PWYW modal target (broadsheet)
+  const [pay,setPay]=useState(null);
   const [payAmt,setPayAmt]=useState(0);
 
   const load=async()=>{
     setLoading(true);
     try{
-      const tgt=window.__nlGoto; window.__nlGoto=null; // newsstand may request a specific month
+      const tgt=window.__nlGoto; window.__nlGoto=null;
       const [curr,months,rng]=await Promise.all([
         (tgt?API.get(`/api/newsletters/${tgt.year}/${tgt.month}`):API.get('/api/newsletters/current')).catch(()=>null),
         API.get('/api/newsletters/months').catch(()=>[]),

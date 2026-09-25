@@ -127,6 +127,7 @@ function EntryCard({ entry, onOpen }) {
         <div className="col-plate-cadence">{fmtEntryDate(entry.entry_date)}</div>
         <div className="col-plate-title">{entry.title}</div>
         {entry.subtitle && <div className="col-plate-sub">{entry.subtitle}</div>}
+        {(entry.tags || []).length > 0 && <div className="tags">{entry.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>}
       </div>
     </div>
   );
@@ -176,6 +177,7 @@ function ColumnEntryView({ entry, col, onBack }) {
       <div className="art-byline"><span>{fmtEntryDate(entry.entry_date)}</span></div>
       {entry.cover_image && <div className="art-fimg"><img src={entry.cover_image} alt={entry.title} /></div>}
       <div className="art-content dropcap" ref={ref} dangerouslySetInnerHTML={{ __html: (entry.body || '') + panelHtml }} />
+      {(entry.tags || []).length > 0 && <div className="tags-sect tags" style={{ paddingTop: '.8rem', borderTop: 'var(--rt)' }}>{entry.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>}
       {lb && <MediaLightbox items={lb.items} index={lb.index} onClose={() => setLb(null)} />}
     </div>
   );

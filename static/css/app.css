@@ -1195,7 +1195,6 @@ footer{border-top:var(--rk);margin-top:4rem;padding:2rem;text-align:center}
   .bs-divider .bs-divider-act{ padding:0 .7rem; }
 }
 
-/* reader desk: static-build-only, appended to the emag's copy of app.css by ve-push.py */
 .ve-desk{position:fixed;right:1rem;bottom:1rem;z-index:9999;font-family:var(--fb,inherit);}
 .ve-desk-pill{background:#111;color:#fff;border:1px solid #111;border-radius:2rem;
   padding:.5rem 1rem;font-size:.85rem;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);}

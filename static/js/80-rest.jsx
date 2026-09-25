@@ -199,7 +199,6 @@ function AdminAnalytics(){
 
   return(
     <div>
-      {}
       <div style={{display:'flex',gap:'.32rem',marginBottom:'1.35rem',flexWrap:'wrap',alignItems:'center'}}>
         {[['30','30 days'],['90','90 days'],['365','1 year'],['all','All time']].map(([v,l])=>(
           <button key={v} className={`btn-s${period===v?' on':''}`} onClick={()=>setPeriod(v)}>{l}</button>
@@ -212,7 +211,6 @@ function AdminAnalytics(){
 
       {analytics&&(
         <>
-          {}
           <div className="stats-grid" style={{marginBottom:'1.85rem'}}>
             {[['Published',(analytics.monthly_pubs||[]).reduce((s,r)=>s+r.count,0)],
               ['Total Reads',analytics.total_reads||0],
@@ -226,7 +224,6 @@ function AdminAnalytics(){
             ))}
           </div>
 
-          {}
           {chartData&&(
             <div style={{marginBottom:'1.85rem'}}>
               <div className="sec-lbl"><span>Activity Over Time</span></div>
@@ -242,7 +239,6 @@ function AdminAnalytics(){
             </div>
           )}
 
-          {}
           <div style={{marginBottom:'1.85rem'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.72rem',flexWrap:'wrap',gap:'.32rem'}}>
               <div className="sec-lbl" style={{margin:0}}><span>Article Performance</span></div>
@@ -272,7 +268,6 @@ function AdminAnalytics(){
             </div>
           </div>
 
-          {}
           {chartData&&chartData.labels.length>1&&(
             <div style={{marginBottom:'1.85rem'}}>
               <div className="sec-lbl"><span>Month by Month</span></div>
@@ -298,7 +293,6 @@ function AdminAnalytics(){
             </div>
           )}
 
-          {}
           <div style={{marginBottom:'1.85rem'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.72rem',flexWrap:'wrap',gap:'.32rem'}}>
               <div className="sec-lbl" style={{margin:0}}><span>Reader Locations</span></div>
@@ -318,7 +312,6 @@ function AdminAnalytics(){
             )}
           </div>
 
-          {}
           <div className="form-row" style={{alignItems:'start',gap:'2rem'}}>
             {analytics.top_authors?.length>0&&(
               <div>
@@ -694,7 +687,6 @@ function EbookPage({toast}){
       </p>
       <div className="ebook-layout">
 
-        {}
         <div className="ebook-browser">
           <div className="ebook-browser-hd">
             <strong>All Published Articles</strong>
@@ -722,7 +714,6 @@ function EbookPage({toast}){
           </div>
         </div>
 
-        {}
         <div className="ebook-config">
           <div className="ebook-sel-hd">
             <strong>Selected ({selected.length})</strong>
@@ -1064,7 +1055,6 @@ function LibraryPage({toast, currentUser, setView}){
           Every issue, broadsheet, and collection we've made — pay what you feel is fair.{' '}
           All support goes directly to sustaining independent journalism.
         </p>
-        {}
         {types.length>1&&(
           <div style={{display:'flex',gap:'.3rem',flexWrap:'wrap'}}>
             <span className={`tag${typeFilter==='all'?' on':''}`} onClick={()=>setTypeFilter('all')}>All</span>
@@ -1175,9 +1165,7 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
 
   return(
     <div className="pub-card" style={{opacity:isHidden?.55:1}}>
-      {}
       <div className="pub-cover" style={{background:tc.color}} onClick={onGet}>
-        {}
         <div className="pub-cover-ph">
           <div style={{fontSize:'2rem',marginBottom:'.4rem',filter:'drop-shadow(0 2px 4px rgba(0,0,0,.4))'}}>{tc.icon}</div>
           <div style={{fontFamily:'var(--fh)',fontWeight:900,fontSize:'.68rem',letterSpacing:'.14em',
@@ -1191,12 +1179,10 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
             </div>
           )}
         </div>
-        {}
         {pub.cover_image&&(
           <img src={pub.cover_image} alt={pub.title} onError={e=>e.target.style.display='none'}/>
         )}
         <div className="pub-badge">{tc.label}{isHidden&&' · Hidden'}</div>
-        {}
         {isAdmin&&pub.is_featured&&(
           <div style={{position:'absolute',top:'.4rem',left:'.4rem',fontSize:'.8rem',
             color:'#f5c451',textShadow:'0 1px 3px rgba(0,0,0,.6)'}} title="Featured — kept permanently">★</div>
@@ -1211,7 +1197,6 @@ function PublicationCard({pub, isAdmin, onGet, onToggleVisible, onToggleFeatured
         )}
       </div>
 
-      {}
       <div className="pub-info">
         <div className="pub-title" onClick={onGet}>{pub.title}</div>
         <div className="pub-meta">
@@ -1266,13 +1251,11 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
     <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="modal pay-modal">
 
-        {}
         <div className="modal-hdr">
           <span className="modal-title">{pub.title}</span>
           <span className="modal-close" onClick={onClose}>✕</span>
         </div>
 
-        {}
         <div className="pay-cover-strip" style={{background:tc.color}}>
           {pub.cover_image
             ? <img src={pub.cover_image} alt={pub.title} onError={e=>e.target.style.display='none'}/>
@@ -1295,9 +1278,7 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
           </div>
         </div>
 
-        {}
         <div className="pay-inner">
-          {}
           <div className="pay-pub-meta">
             <span>{tc.label}</span>
             {pub.article_count>0&&<span> · {pub.article_count} articles</span>}
@@ -1307,7 +1288,6 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
 
           {pub.description&&<p className="pay-desc">{pub.description}</p>}
 
-          {}
           <div className="pay-section-lbl">Pay What You Want</div>
 
           <div className="pay-presets">
@@ -1320,7 +1300,6 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
             ))}
           </div>
 
-          {}
           {!isFree&&(
             <div className="pay-btns">
               <a href={payLink} target="_blank" rel="noopener noreferrer"
@@ -1338,7 +1317,6 @@ function PaymentModal({pub, amount, setAmount, onClose, toast, setView}){
 
           <hr className="pay-divider"/>
 
-          {}
           {pub._pdf_url?(
             <div className="pay-btns" style={{flexDirection:'column'}}>
               <button className="btn-p" style={{width:'100%',fontSize:'.7rem'}}

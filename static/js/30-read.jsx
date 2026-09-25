@@ -149,7 +149,6 @@ function HomePage({setView,go,toast,sections}){
         <span>Vol. IV · Free · Reader Supported</span>
       </div>
       <div className="bs-hero-split">
-        {}
         <div className="bs-hero-left">
           <div className="bs-front">
             <div className="bs-lead-col">
@@ -174,7 +173,6 @@ function HomePage({setView,go,toast,sections}){
             </div>
           </div>
         </div>
-        {}
         <div className="bs-hero-right">
           <div className="bs-filter-pane">
             <div className="bs-fp-head">Browse</div>
@@ -750,7 +748,6 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
         )}
       </div>
 
-      {}
       {popup&&(
         <div className="ann-popup" style={{left:popup.x,top:popup.y}}>
           <div style={{fontFamily:'var(--fm)',fontSize:'.56rem',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:'.38rem',color:'var(--g600)'}}>Add Note</div>
@@ -768,7 +765,6 @@ function ArticleView({article:init,setView,go,goBack,readMode,setReadMode,toast,
         </div>
       )}
 
-      {}
       {showAnns&&(
         <div className="ann-panel" role="complementary" aria-label="Annotations">
           <div className="ann-hdr">
